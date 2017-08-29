@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<robot name="rightArm">
+  <joint name="right_s0">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>
+  <joint name="right_s1">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>
+  <joint name="right_e0">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>
+  <joint name="right_e1">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>
+  <joint name="right_w0">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>
+  <joint name="right_w1">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>
+  <joint name="right_w2">
+    <limit lower="-3.14" upper="3.14"/>
+  </joint>  
+</robot>

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+    <group ns="left">
+    <!-- manual control-->
+    <param name="robot_description" textfile="$(find ecn_baxter_vs)/scene/left_dummy.urdf"/>
+    <node name="gui" pkg="joint_state_publisher" type="joint_state_publisher">
+        <param name="use_gui" value="True"/>
+        <remap from="joint_states" to="/vrep_ros_interface/joint_command" />
+    </node> 
+    </group>
+    
+    <group ns="right">
+    <!-- manual control-->
+    <param name="robot_description" textfile="$(find ecn_baxter_vs)/scene/right_dummy.urdf"/>
+    <node name="gui" pkg="joint_state_publisher" type="joint_state_publisher">
+        <param name="use_gui" value="True"/>
+        <remap from="joint_states" to="/vrep_ros_interface/joint_command" />
+    </node> 
+    </group>
+</launch>
