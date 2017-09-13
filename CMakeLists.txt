@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
   urdf
+  ecn_common
 )
 
 ## System dependencies are found with CMake's conventions
@@ -30,7 +31,7 @@ find_package(VISP REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ecn_baxter_vs
-  CATKIN_DEPENDS baxter_core_msgs roscpp sensor_msgs std_msgs image_transport
+  CATKIN_DEPENDS baxter_core_msgs roscpp sensor_msgs std_msgs image_transport ecn_common
   DEPENDS VISP OpenCV
 )
 

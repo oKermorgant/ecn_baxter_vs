@@ -5,17 +5,33 @@
 
 using std::vector;
 
-BaxterArm::BaxterArm(ros::NodeHandle &_nh, std::string _side, bool _sim) : it_(_nh), sim_(_sim)
+BaxterArm::BaxterArm() : nh_("~"), it_(nh_)
+{
+    // init sim and side from parameter server
+    nh_.param("sim", sim_, true);
+
+    std::string side;
+    nh_.param<std::string>("side", side, "right");
+
+    BaxterArm(sim_, side);
+}
+
+BaxterArm::BaxterArm(bool _sim, std::string _side) : nh_("~"), it_(nh_), sim_(_sim)
 {
     // in case of misspell
     if (_side != "left")
         _side = "right";
 
-    // we detect green by default (sim)
-    detect(0, 255, 0);
-
     // which arm
     lefty_ = (_side == "left");
+
+    // we detect green by default (sim)
+    if(sim_)
+        cd_.detectColor(0, 255, 0);
+    else if(lefty_)
+        cd_.detectColor(255,0,0);
+    else
+        cd_.detectColor(255,255,0);
 
     std::cout << "BaxterArm initialized for " << _side << " arm ";
     if(sim_)
@@ -43,22 +59,24 @@ BaxterArm::BaxterArm(ros::NodeHandle &_nh, std::string _side, bool _sim) : it_(_
     // parse URDF to get robot data (name, DOF, joint limits, etc.)
     urdf::Model model;
 
-    model.initParam("/robot_description");
-    q_min_.resize(7);
-    q_max_.resize(7);
-    v_max_.resize(7);
-    for(auto& joint: model.joints_)
+    if(nh_.hasParam("/robot_description"))
     {
-        for(unsigned int i=0;i<7;++i)
+        model.initParam("/robot_description");
+        q_min_.resize(7);
+        q_max_.resize(7);
+        v_max_.resize(7);
+        for(auto& joint: model.joints_)
         {
-            if(joint.second->name == cmd_msg_real.names[i])
+            for(unsigned int i=0;i<7;++i)
             {
-                v_max_[i] = joint.second->limits->velocity;
-                q_min_[i] = joint.second->limits->lower;
-                q_max_[i] = joint.second->limits->upper;
+                if(joint.second->name == cmd_msg_real.names[i])
+                {
+                    v_max_[i] = joint.second->limits->velocity;
+                    q_min_[i] = joint.second->limits->lower;
+                    q_max_[i] = joint.second->limits->upper;
+                }
             }
-        }
-    }
+        }}
 
     // init fixed matrices
     // between wrist Fw and camera Fc
@@ -116,90 +134,50 @@ BaxterArm::BaxterArm(ros::NodeHandle &_nh, std::string _side, bool _sim) : it_(_
     if(sim_)
     {
         // publisher to joint command
-        cmd_pub_ = _nh.advertise<sensor_msgs::JointState>("/vrep_ros_interface/joint_command", 100);
+        cmd_pub_ = nh_.advertise<sensor_msgs::JointState>("/vrep_ros_interface/joint_command", 100);
 
         // subscriber to joint states
-        joint_subscriber_ = _nh.subscribe("/vrep_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
+        joint_subscriber_ = nh_.subscribe("/vrep_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
 
         // set image to None, subscriber instantiated in the image setter
         image_subscriber_ = it_.subscribe("/vrep_ros_interface/camera/"+_side, 1, &BaxterArm::readImage, this);
 
         // camera parameters
-        cam_.initFromFov(640, 480, M_PI/2, M_PI/2);
+        cd_.setCamera(640, 480, M_PI/2);
     }
     else
     {
         // publisher to joint command
-        cmd_pub_ = _nh.advertise<baxter_core_msgs::JointCommand>("/robot/limb/"+_side+"/joint_command", 100);
+        cmd_pub_ = nh_.advertise<baxter_core_msgs::JointCommand>("/robot/limb/"+_side+"/joint_command", 100);
 
         // subscriber to joint states
-        joint_subscriber_ = _nh.subscribe("/robot/joint_states", 1000, &BaxterArm::readJointStates, this);
+        joint_subscriber_ = nh_.subscribe("/robot/joint_states", 1000, &BaxterArm::readJointStates, this);
 
         // set image to None, subscriber instantiated in the image setter
         image_subscriber_ = it_.subscribe("/cameras/"+_side+"_hand_camera/image", 1, &BaxterArm::readImage, this);
 
         // camera parameters
         if(lefty_)
-            cam_.initPersProjWithoutDistortion(403.33,403.33,336.04,208.45);
+            cd_.setCamera(403.33,403.33,336.04,208.45);
         else
-            cam_.initPersProjWithoutDistortion(404.38,404.38,323.58,196.39);
+            cd_.setCamera(404.38,404.38,323.58,196.39);
 
         // publisher to Baxter image
         image_publisher_ = it_.advertise("/robot/xdisplay", 100);
-
-
-
-
     }
 
     // visualization
-    joint_pub_ = _nh.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/joints", 100);
-    vs_pub_ = _nh.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/vs", 100);
+    joint_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/joints", 100);
+    vs_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/vs", 100);
 
     ros::spinOnce();
 }
 
 void BaxterArm::detect(int r, int g, int b, bool show_segment)
 {
-    show_segment_ = show_segment;
-    // convert color to HSV
-    const float cmax = std::max(r, std::max(g,b));
-    const float cmin = std::min(r, std::min(g,b));
-    const float d = cmax - cmin;
-
-    int h = 0;
-    if(d)
-    {
-        if(cmax == r)
-            h = 30*(fmod((g-b)/d,6));
-        else if(cmax == g)
-            h = 30*((b-r)/d + 2);
-        else
-            h = 30*((r-g)/d + 4);
-    }
-
-    // build inRange bounds for hue
-    int hthr = 10;
-    hue_ = {std::max(h-hthr,0),std::min(h+hthr,179)};
-
-    // other segmentation for h
-    if(h < hthr)
-    {
-        hue_.push_back(179+h-hthr);
-        hue_.push_back(179);
-    }
-    else if(h+hthr > 179)
-    {
-        hue_.push_back(0);
-        hue_.push_back(h+hthr-179);
-    }
-
-    // init display
-    cv::namedWindow("Baxter");
-    cv::createTrackbar( "Saturation", "Baxter", &sat_, 255);
-    cv::createTrackbar( "Value", "Baxter", &val_, 255);
-    cv::setTrackbarPos("Saturation", "Baxter", 130);
-    cv::setTrackbarPos("Value", "Baxter", 95);
+    cd_.detectColor(r, g, b);
+    if(show_segment)
+        cd_.showSegmentation();
 }
 
 
@@ -219,11 +197,19 @@ void BaxterArm::init()
 
 void BaxterArm::setJointPosition(vpColVector _q)
 {
+    ros::Rate loop(10);
+    // wait to receive joint states
+    while(!ok())
+    {
+        ros::spinOnce();
+        loop.sleep();
+    }
+
     if(sim_)
     {
         // simulation only allows velocity control
         // -> apply velocity till desired position is reached
-        ros::Rate loop(10);
+
         int it = 0;
         double lambda = 2;
         while((_q - q_).euclideanNorm() > 1e-3 && it < 1000)
@@ -241,7 +227,6 @@ void BaxterArm::setJointPosition(vpColVector _q)
         for(unsigned int i=0;i<7;++i)
             cmd_msg_real.command[i] = _q[i];
         cmd_msg_real.mode = 1;
-        ros::Rate loop(10);
         int it = 0;
         while((_q - q_).euclideanNorm() > 1e-3 && it < 1000)
         {
@@ -603,82 +588,17 @@ void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
     joint_pub_.publish(msg);
 }
 
-
-void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& msg)
+void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
 {
-    cv::cvtColor(cv_bridge::toCvShare(msg, "bgr8")->image,
-                 img_,
-                 cv::COLOR_BGR2HSV);
-    cv::GaussianBlur(img_, img_, cv::Size(9,9), 2);
+    // process with color detector
+    cv::Mat im_out;
 
-    if(hue_.size())
-    {
-        // segment for detection of given RGB (from Hue)
-        cv::inRange(img_, cv::Scalar(hue_[0], sat_, val_),
-                cv::Scalar(hue_[1], 255, 255), seg1_);
-        // add for 2nd detection if near red
-        if(hue_.size() == 4)
-        {
-            cv::inRange(img_, cv::Scalar(hue_[2], sat_, val_),
-                    cv::Scalar(hue_[3], 255, 255), seg2_);
-            seg1_ += seg2_;
-        }
+    cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out);
 
-        if(show_segment_)
-            cv::imshow("inrange", seg1_);
-
-        vector<vector<cv::Point> > contours;
-        vector<cv::Vec4i> hierarchy;
-        cv::findContours( seg1_, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
-
-        // pop all children
-        bool found = true;
-        while(found)
-        {
-            found = false;
-            for(unsigned int i=0;i<hierarchy.size();++i)
-            {
-                if(hierarchy[i][3] > -1)
-                {
-                    found = true;
-                    hierarchy.erase(hierarchy.begin()+i,hierarchy.begin()+i+1);
-                    contours.erase(contours.begin()+i, contours.begin()+i+1);
-                    break;
-                }
-            }
-        }
-
-        if(contours.size())
-        {
-            // get largest contour
-            auto largest = std::max_element(
-                        contours.begin(), contours.end(),
-                        [](const vector<cv::Point> &c1, const vector<cv::Point> &c2)
-            {return cv::contourArea(c1) < cv::contourArea(c2);});
-            int idx = std::distance(contours.begin(), largest);
-
-            cv::Point2f pt;float radius;
-            cv::minEnclosingCircle(contours[idx], pt, radius);
-            cv::circle(cv_bridge::toCvShare(msg, "bgr8")->image, pt, radius, cv::Scalar(255,255,255), 2);
-
-            // filter position
-            x_ = .5*(x_ + pt.x);
-            y_ = .5*(y_ + pt.y);
-            rad_ = .5*(rad_ + radius);
-            std::cout << "Sphere detected at (" << pt.x << ", " << pt.y << ")\n";
-            std::cout << "       Filtered at (" << x_ << ", " << y_ << ")\n";
-
-            // publish VS features
-            std_msgs::Float32MultiArray msg;
-            msg.data = {x(), y(), area()};
-            vs_pub_.publish(msg);
-        }
-    }
-
-    else
-    {
-        std::cout << "RGB to detect was not defined\n";
-    }
-    cv::imshow("Baxter",cv_bridge::toCvShare(msg, "bgr8")->image);
+    // publish result
+    std_msgs::Float32MultiArray msg;
+    msg.data = {(float) cd_.x(), (float) cd_.y(), (float) cd_.area()};
+    vs_pub_.publish(msg);
+    cv::imshow("Baxter",im_out);
     cv::waitKey(1);
 }

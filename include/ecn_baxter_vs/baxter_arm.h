@@ -10,14 +10,15 @@
 #include <visp/vpVelocityTwistMatrix.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
-#include <visp/vpCameraParameters.h>
+#include <ecn_common/color_detector.h>
 #include <ctime>
 
 class BaxterArm
 {
 public:
 
-    BaxterArm(ros::NodeHandle &_nh, std::string _side, bool _sim = true);
+    BaxterArm();
+    BaxterArm(bool _sim, std::string _side = "");
 
     // joint space I/O
     vpColVector jointPosition() {return q_;}
@@ -63,17 +64,19 @@ public:
 
     // camera part
     void detect(int r, int g ,int b, bool show_segment = false);
-    double x() {return (x_ - cam_.get_u0())*cam_.get_px_inverse();}
-    double y() {return (sim_?1:-1)*(y_ - cam_.get_v0())*cam_.get_py_inverse();}
-    double area() {return rad_*rad_*M_PI*cam_.get_px_inverse()*cam_.get_py_inverse();}
+    float x() {return cd_.x();}
+    float y() {return cd_.y();}
+    float area() {return cd_.area();}
 
     bool ok()
     {
-        return x_*y_ != 0 && q_.euclideanNorm() != 0;
+        return q_.euclideanNorm() != 0;
     }
+
 
  protected:
     // ROS
+    ros::NodeHandle nh_;
     ros::Publisher cmd_pub_;
     ros::Subscriber joint_subscriber_;
     std::vector<std::string> names_;
@@ -93,12 +96,7 @@ public:
     image_transport::ImageTransport it_;
     image_transport::Subscriber image_subscriber_;
     image_transport::Publisher image_publisher_;
-    double x_=0, y_=0, rad_=0;  // extracted position
-    vpCameraParameters cam_;
-    std::vector<int> hue_;
-    int sat_, val_;
-    cv::Mat img_, seg1_, seg2_;
-    bool show_segment_;
+    ecn::ColorDetector cd_;
 
     // joint limits
     vpColVector q_min_, q_max_, v_max_;

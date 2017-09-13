@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
   <name>ecn_baxter_vs</name>
   <version>0.0.1</version>
   <description>The ecn_baxter_vs package</description>
@@ -11,22 +11,15 @@
 
 
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>baxter_core_msgs</build_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>cv_bridge</build_depend>
-  <build_depend>urdf</build_depend>
-  <build_depend>image_transport</build_depend>
 
-  <run_depend>image_transport</run_depend>
-  <run_depend>urdf</run_depend>
-<run_depend>cv_bridge</run_depend>
-  <run_depend>baxter_core_msgs</run_depend>
-  <run_depend>roscpp</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>std_msgs</run_depend>
-
+  <depend>baxter_core_msgs</depend>
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>urdf</depend>
+  <depend>image_transport</depend>
+ <depend>ecn_common</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

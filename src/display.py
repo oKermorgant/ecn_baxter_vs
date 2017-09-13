@@ -8,7 +8,7 @@ import roslib, rospy, rospkg
 from std_msgs.msg import Float32MultiArray
 
 class Listener:
-    def __init__(self, topic, joints = False):
+    def __init__(self, topic):
         
         self.history = []
         self.t = []
@@ -19,8 +19,11 @@ class Listener:
         # init figure
         self.F = pl.figure()
         self.ax = self.F.gca()
+        self.F.tight_layout()
         # init lines
-        self.lines = []        
+        self.lines = []
+        self.joints = "joint" in topic
+        
         
     def read(self, msg):
         # append history
@@ -35,8 +38,40 @@ class Listener:
         self.history = self.history[idx:]
         self.t = self.t[idx:]
         
-        
-        
+        # init lines
+        if len(self.lines):
+            # update lines
+            for i,v in enumerate(msg.data):
+                self.lines[i].set_data(self.t, [h[i] for h in self.history])
+            
+            # update zero
+            self.lines[i+1].set_data([self.t[0],self.t[-1]],[0,0])
+            
+            if self.joints:
+                self.lines[i+2].set_data([self.t[0],self.t[-1]],[1,1])
+                self.ax.axis((self.t[0],self.t[-1],-.05,1.05))
+            else:
+                y = [h[i] for h in self.history for i in xrange(msg.data)]
+                yM = max(y)
+                ym = min(y)
+                self.ax.axis((self.t[0],self.t[-1],ym - 0.05*(yM-ym), yM+0.05*(yM-ym)))
+                
+        else:
+            if self.joints:
+                names = ["$q_{}$".format(i) for i in xrange(1,8)]
+            else:
+                names = ["x","y","a"]
+                
+            for i in xrange(len(msg.data)):
+                self.lines.append(self.ax.plot([],[],label=names[i],linewidth=2))
+
+            if self.joints:
+                # joint limits
+                for i in (1,2):
+                    self.lines.append(self.ax.plot([],[],'k-',linewidth=2))
+            else:
+                # zero line
+                self.lines.append(self.ax.plot([],[],'k--'))
         
         
 if __name__ == '__main__':
@@ -49,24 +84,9 @@ if __name__ == '__main__':
     pl.ion()
     pl.close('all')
     
-    joint_listener = Listener("joints", True)
+    joint_listener = Listener("joints")
     vs_listener = Listener("vs")
     
-
-    
-    F_j = pl.figure()
-    ax_j = pl.gca()  
-    F_vs = pl.figure()
-    ax_vs = pl.gca()
-    
-    # lines to be updated
-    lines_j = []
-    lines_vs = []
-    
-    
-    
-    
-    t = rospy.Time.now().
     
     while not rospy.is_shutdown():
         
@@ -144,8 +164,7 @@ if __name__ == '__main__':
                 pl.plot([x],[y],'gD',linewidth=2)
                 
                             
-                pl.draw()
-                pl.pause(.0001)
+)
             else:
                 print('Only %i vertices compatible with constraints' % len(vert))
     
