@@ -1,22 +1,11 @@
 #include <ecn_baxter_vs/baxter_arm.h>
 #include <urdf/model.h>
-#include <visp/vpPixelMeterConversion.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <opencv2/highgui.hpp>
 
-using std::vector;
+using namespace std;
 
-BaxterArm::BaxterArm() : nh_("~"), it_(nh_)
-{
-    // init sim and side from parameter server
-    nh_.param("sim", sim_, true);
-
-    std::string side;
-    nh_.param<std::string>("side", side, "right");
-
-    BaxterArm(sim_, side);
-}
-
-BaxterArm::BaxterArm(bool _sim, std::string _side) : nh_("~"), it_(nh_), sim_(_sim)
+BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim)
 {
     // in case of misspell
     if (_side != "left")
@@ -170,6 +159,11 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : nh_("~"), it_(nh_), sim_(_s
     joint_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/joints", 100);
     vs_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/vs", 100);
 
+    // display image
+    cv::namedWindow("Baxter");
+    cv::createTrackbar( "lambda", "Baxter", &lambda_, 10);
+    cv::setTrackbarPos("lambda", "Baxter", 1);
+
     ros::spinOnce();
 }
 
@@ -179,7 +173,6 @@ void BaxterArm::detect(int r, int g, int b, bool show_segment)
     if(show_segment)
         cd_.showSegmentation();
 }
-
 
 void BaxterArm::init()
 {
@@ -204,6 +197,7 @@ void BaxterArm::setJointPosition(vpColVector _q)
         ros::spinOnce();
         loop.sleep();
     }
+    cout << "Joint states received\n";
 
     if(sim_)
     {
@@ -563,7 +557,6 @@ int BaxterArm::fJw(const vpColVector &_q, vpMatrix &_J)
     return 0;
 }
 
-
 void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
 {
     const bool init = (q_.euclideanNorm() == 0);
@@ -599,6 +592,7 @@ void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
     std_msgs::Float32MultiArray msg;
     msg.data = {(float) cd_.x(), (float) cd_.y(), (float) cd_.area()};
     vs_pub_.publish(msg);
+    // display...
     cv::imshow("Baxter",im_out);
     cv::waitKey(1);
 }

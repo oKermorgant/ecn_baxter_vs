@@ -1,78 +1,96 @@
 #!/usr/bin/python
 
 '''
-This node subscribes to a 32-length array and plots the corresponding polygon and barycenter
+Plots relative joints and VS error
 '''
 import pylab as pl
 import roslib, rospy, rospkg
 from std_msgs.msg import Float32MultiArray
+import os
+
+side = "right"
 
 class Listener:
     def __init__(self, topic):
         
         self.history = []
         self.t = []
+        self.t0 = 0
+        self.dim = 0
+        self.lock = False
         
-        # subscriber to joints ans visual error
-        rospy.Subscriber(topic, Float32MultiArray, self.read)
+        # subscriber to joints and visual error
+        for side in ('left', 'right'):
+            rospy.Subscriber('/'.join(['','display',side,topic]), Float32MultiArray, self.read, (side))
         
-        # init figure
-        self.F = pl.figure()
-        self.ax = self.F.gca()
-        self.F.tight_layout()
         # init lines
         self.lines = []
         self.joints = "joint" in topic
         
-        
-    def read(self, msg):
-        # append history
-        self.history.append(msg.data)
-        t = rospy.Time.now().to_sec()
-        self.t.append(t)
-        
-        # remove old measurements
-        idx = 0
-        while t - self.t[idx] > 10:
-            idx += 1
-        self.history = self.history[idx:]
-        self.t = self.t[idx:]
-        
-        # init lines
-        if len(self.lines):
-            # update lines
-            for i,v in enumerate(msg.data):
-                self.lines[i].set_data(self.t, [h[i] for h in self.history])
-            
-            # update zero
-            self.lines[i+1].set_data([self.t[0],self.t[-1]],[0,0])
-            
-            if self.joints:
-                self.lines[i+2].set_data([self.t[0],self.t[-1]],[1,1])
-                self.ax.axis((self.t[0],self.t[-1],-.05,1.05))
-            else:
-                y = [h[i] for h in self.history for i in xrange(msg.data)]
-                yM = max(y)
-                ym = min(y)
-                self.ax.axis((self.t[0],self.t[-1],ym - 0.05*(yM-ym), yM+0.05*(yM-ym)))
-                
-        else:
-            if self.joints:
-                names = ["$q_{}$".format(i) for i in xrange(1,8)]
-            else:
-                names = ["x","y","a"]
-                
-            for i in xrange(len(msg.data)):
-                self.lines.append(self.ax.plot([],[],label=names[i],linewidth=2))
+        # init figure
+        self.F = pl.figure()
+        self.ax = self.F.gca()
+        self.ax.set_xlabel('Time [s]')
+        self.F.tight_layout()
 
-            if self.joints:
-                # joint limits
-                for i in (1,2):
-                    self.lines.append(self.ax.plot([],[],'k-',linewidth=2))
+    def read(self, msg, args):
+        if args == side and not self.lock:
+            # append history 
+            self.history.append(msg.data)
+            if not self.t0:
+                self.t0 = rospy.Time.now().to_sec()
+            t = rospy.Time.now().to_sec() - self.t0
+            self.t.append(t)
+            
+            self.dim = len(msg.data)
+            
+    def update(self):
+        # remove old measurements
+        self.lock = True
+        if self.dim:
+            idx = 0
+            while self.t[-1] - self.t[idx] > 10:
+                idx += 1
+            self.history = self.history[idx:]
+            self.t = self.t[idx:]
+            print len(self.t), len(self.history)
+            
+            # init lines
+            if len(self.lines):
+                # update lines
+                for i in xrange(self.dim):
+                    self.lines[i].set_data(self.t, [h[i] for h in self.history])
+                
+                # update zero
+                self.lines[i+1].set_data([self.t[0],self.t[-1]],[0,0])
+                
+                if self.joints:
+                    self.lines[i+2].set_data([self.t[0],self.t[-1]],[1,1])
+                    yM = 1
+                    ym = 0
+                else:
+                    y = [h[i] for h in self.history for i in xrange(self.dim)]
+                    yM = max(y)
+                    ym = min(y)
+                self.ax.axis((self.t[0],self.t[-1],ym - 0.05*(yM-ym), yM+0.05*(yM-ym)))
+                    
             else:
-                # zero line
-                self.lines.append(self.ax.plot([],[],'k--'))
-        
+                if self.joints:
+                    names = ["$q_{}$".format(i) for i in xrange(1,8)]
+                else:
+                    names = ["x","y","a"]
+                    
+                for i in xrange(self.dim):
+                    self.lines += self.ax.plot([],[],label=names[i],linewidth=2)
+
+                if self.joints:
+                    # joint limits
+                    for i in (1,2):
+                        self.lines += self.ax.plot([],[],'k-',linewidth=2)
+                else:
+                    # zero line
+                    self.lines += self.ax.plot([],[],'k--')
+        self.lock = False
         
 if __name__ == '__main__':
     '''
@@ -87,85 +105,38 @@ if __name__ == '__main__':
     joint_listener = Listener("joints")
     vs_listener = Listener("vs")
     
+    # get source file to read side... will do if binary has changed
+    pkg = 'ecn_baxter_vs'
+    src = os.path.abspath(__file__)
+    src = src.replace('src/display.py', 'main.cpp')
+    tree = src.split('/')
+    l = len(tree)
+    ws = src
+    while not (os.path.exists(ws + '/src') and os.path.exists(ws + '/devel')):
+        l -= 1
+        ws = '/'.join(tree[:l])
+    # get to binary file
+    binary = ws + '/devel/.private/' + pkg + '/lib/' + pkg + '/baxter_vs'
     
+    t0 = os.stat(binary).st_mtime
     while not rospy.is_shutdown():
+        t = os.stat(binary).st_mtime
+        if t - t0 > 1:
+            # update last change
+            t0 = t
+            # re-read source to get side
+            with open(src) as f:
+                content = f.read().splitlines()
+            side = 'right'
+            for line in content:
+                if 'BaxterArm' in line:
+                    if 'left' in line:
+                        side = 'left'
+                    break
         
-        if listener.msg_ok:
-            
-            H = listener.H.copy()
-            A = listener.A.copy()
-            B = listener.B.copy()
-            # get vertices
-            vert = []
-            for i in xrange(8):
-                    for j in xrange( i+1, 8): #xrange(8):
-                        if i != j:
-                            for u in [A[i],B[i]]:
-                                for v in [A[j],B[j]]:
-                                    # intersection of Ai = Hi.x and Bj = Hj.x
-                                    x = pl.dot(pl.inv(H[[i,j],:]), pl.array([u,v]))
-                                                                     
-                                    # check constraints: A <= H.x <= B
-                                    if pl.amin(pl.dot(H,x) - A) >= -1e-6 and pl.amax(pl.dot(H,x) - B) <= 1e-6:                                               
-                                        vert.append(x.reshape(2).copy())            
-          
-            # continue only if enough vertices
-            if len(vert) > 2:
-                ax.clear()
-                                
-                vert_uns = pl.array(vert + [vert[0]])
-                
-                xm,xM,ym,yM = pl.amin(vert_uns[:,0]),pl.amax(vert_uns[:,0]),pl.amin(vert_uns[:,1]),pl.amax(vert_uns[:,1])
-                ax.set_xlim(xm - 0.05*(xM-xm), xM+0.05*(xM-xm))
-                ax.set_ylim(ym - 0.05*(yM-ym), yM+0.05*(yM-ym))
-                
-                # plot lines
-                xl = pl.array([xm - 0.05*(xM-xm), xM+0.05*(xM-xm)])
-                for i in xrange(8):
-                    s = - 0.05*(yM-ym) * pl.sqrt(H[i,0]**2+H[i,1]**2)/H[i,1]
-                    
-                    # A = H.x
-                    ya = pl.array([1./H[i,1]*(A[i,0]-H[i,0]*x) for x in xl])
-                    
-                    
-                    pl.plot(xl,ya, 'b', linewidth=1)
-                    ax.fill_between(xl, ya, ya+s, facecolor='red', alpha=0.5, interpolate=True)
-                    
-                    
-                    # B = H.x
-                    ya = pl.array([1./H[i,1]*(B[i,0]-H[i,0]*x) for x in xl])
-                    pl.plot(xl,ya, 'b', linewidth=1)
-                    ax.fill_between(xl, ya, ya-s, facecolor='red', alpha=0.5, interpolate=True)                    
-                    
-                # plot unsorted vertices
-                
-                pl.plot(vert_uns[:,0], vert_uns[:,1], 'r--D', linewidth=1)
-                    
-                # sort vertices counter-clockwise
-                mid = pl.mean(vert,0)
-                
-                vert.sort(key=lambda p: pl.arctan2(p[1]-mid[1], p[0]-mid[0]))
-                
-                vert = pl.array(vert + [vert[0]])
-                pl.plot(vert[:,0],vert[:,1],'g',linewidth=2)
-                
-                # get center of gravity
-                a = 0
-                x = 0
-                y = 0
-                for i in xrange(vert.shape[0]):
-                    v = vert[i-1,0]*vert[i,1] - vert[i,0]*vert[i-1,1]
-                    a += v
-                    x += v*(vert[i,0]+vert[i-1,0])
-                    y += v*(vert[i,1]+vert[i-1,1])                
-                a *= 0.5
-                x /= 6*a
-                y /= 6*a
-                pl.plot([x],[y],'gD',linewidth=2)
-                
-                            
-)
-            else:
-                print('Only %i vertices compatible with constraints' % len(vert))
-    
+        joint_listener.update()
+        vs_listener.update()
+        pl.draw()
+        pl.pause(0.001)
+
         rospy.sleep(0.01)

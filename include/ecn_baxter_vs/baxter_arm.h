@@ -8,7 +8,6 @@
 #include <visp/vpColVector.h>
 #include <visp/vpHomogeneousMatrix.h>
 #include <visp/vpVelocityTwistMatrix.h>
-#include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <ecn_common/color_detector.h>
 #include <ctime>
@@ -17,8 +16,7 @@ class BaxterArm
 {
 public:
 
-    BaxterArm();
-    BaxterArm(bool _sim, std::string _side = "");
+    BaxterArm(bool _sim = true, std::string _side = "right");
 
     // joint space I/O
     vpColVector jointPosition() {return q_;}
@@ -61,6 +59,7 @@ public:
     inline vpColVector jointMin() {return q_min_;}
     inline vpColVector jointMax() {return q_max_;}
     inline vpColVector velocityMax() {return v_max_;}
+    inline int lambda() {return lambda_;}
 
     // camera part
     void detect(int r, int g ,int b, bool show_segment = false);
@@ -82,6 +81,9 @@ public:
     std::vector<std::string> names_;
     sensor_msgs::JointState cmd_msg_sim;
     baxter_core_msgs::JointCommand cmd_msg_real;
+
+    // gain tuning
+    int lambda_;
 
     // online feedback
     ros::Publisher joint_pub_, vs_pub_;

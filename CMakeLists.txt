@@ -50,3 +50,6 @@ include_directories(
 
 add_library(ecn_baxter_vs include/ecn_baxter_vs/baxter_arm.h src/baxter_arm.cpp)
 target_link_libraries(ecn_baxter_vs ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${VISP_LIBRARIES})
+
+add_executable(baxter_vs main.cpp)
+target_link_libraries(baxter_vs ecn_baxter_vs)
