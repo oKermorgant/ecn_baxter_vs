@@ -69,7 +69,9 @@ public:
 
     bool ok()
     {
-        return q_.euclideanNorm() != 0;
+        ros::spinOnce();
+        loop_.sleep();
+        return ros::ok() && q_.euclideanNorm() != 0;
     }
 
 
@@ -77,6 +79,7 @@ public:
     // ROS
     ros::NodeHandle nh_;
     ros::Publisher cmd_pub_;
+    ros::Rate loop_;
     ros::Subscriber joint_subscriber_;
     std::vector<std::string> names_;
     sensor_msgs::JointState cmd_msg_sim;

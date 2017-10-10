@@ -5,7 +5,7 @@
 
 using namespace std;
 
-BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim)
+BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_(10)
 {
     // in case of misspell
     if (_side != "left")
@@ -161,7 +161,7 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim)
 
     // display image
     cv::namedWindow("Baxter");
-    cv::createTrackbar( "lambda", "Baxter", &lambda_, 10);
+    cv::createTrackbar( "lambda", "Baxter", &lambda_, 50);
     cv::setTrackbarPos("lambda", "Baxter", 1);
 
     ros::spinOnce();

@@ -9,10 +9,9 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "control_node");
 
     BaxterArm arm;    // defaults to simulation with right arm
+    //BaxterArm arm(false, "left");   // real robot with left arm
 
     arm.init();
-
-    ros::Rate loop(10);
 
     int it = 0;
 
@@ -25,9 +24,7 @@ int main(int argc, char** argv)
     double x, y, a;
     vpColVector v(6);v[0] = .01;
 
-    while(ros::ok())
-    {
-        if(arm.ok())
+    while(arm.ok())
         {
             it++;
             cout << "-------------" << endl;
@@ -52,9 +49,6 @@ int main(int argc, char** argv)
             //arm.setJointVelocity(v);
             arm.setCameraVelocity(-arm.lambda()*L.pseudoInverse() * p.error(pd));
 
-        }
-        ros::spinOnce();
-        loop.sleep();
     }
 
 }
