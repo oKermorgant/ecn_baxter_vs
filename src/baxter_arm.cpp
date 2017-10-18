@@ -2,6 +2,7 @@
 #include <urdf/model.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <opencv2/highgui.hpp>
+#include <thread>
 
 using namespace std;
 
@@ -172,6 +173,15 @@ void BaxterArm::detect(int r, int g, int b, bool show_segment)
     cd_.detectColor(r, g, b);
     if(show_segment)
         cd_.showSegmentation();
+}
+
+void BaxterArm::plot()
+{
+    //std::thread t([this]()
+    {
+        system("rosrun ecn_baxter_vs display &");
+    }//);
+
 }
 
 void BaxterArm::init()
@@ -373,10 +383,7 @@ int BaxterArm::fMw(const vpColVector &_q, vpHomogeneousMatrix &_M)
     return 0;
 }
 
-/**
- * @brief calcul modele geometrique inverse analytique ou iteratif
- * @details WRONG TODO
- */
+
 bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMatrix &_M_des, vpColVector &_q)
 {
     const double eMin = 0.1;
@@ -391,27 +398,13 @@ bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMat
     vpMatrix J(6,7), J_reduce(6,6);
     _q = _q0;
     std::cout << "Current pose: " << _q0 << std::endl;
-    //_q[6] = q_min_[6];
-    // while( nb_try < max_try)
     {
-        //   for (int i = 0; i < 6; ++i)     // random initial solution
-        //   {
-        //       _q[i] = q_min_[i] + static_cast <double> (rand()) /( static_cast <double> (RAND_MAX/(q_max_[i]-q_min_[i])));
-        //   }
-        //    std::cout << "Try number " << nb_try << " initial rand sol:: " << _q.t() << std::endl;
         iter = 0; e = 2*eMin;
         while(e > eMin && iter < max_iter)
         {
             fMw(_q, M);
             fJw(_q, J);
             pose_err.buildFrom(M*_M_des.inverse());
-            /*   J_reduce[0][0] = J[0][0]; J_reduce[0][1] = J[0][1]; J_reduce[0][2] = J[0][2]; J_reduce[0][3] = J[0][3]; J_reduce[0][4] = J[0][4]; J_reduce[0][5] = J[0][5];
-            J_reduce[1][0] = J[1][0]; J_reduce[1][1] = J[1][1]; J_reduce[1][2] = J[1][2]; J_reduce[1][3] = J[1][3]; J_reduce[1][4] = J[1][4]; J_reduce[1][5] = J[1][5];
-            J_reduce[2][0] = J[2][0]; J_reduce[2][1] = J[2][1]; J_reduce[2][2] = J[2][2]; J_reduce[2][3] = J[2][3]; J_reduce[2][4] = J[2][4]; J_reduce[2][5] = J[2][5];
-            J_reduce[3][0] = J[3][0]; J_reduce[3][1] = J[3][1]; J_reduce[3][2] = J[3][2]; J_reduce[3][3] = J[3][3]; J_reduce[3][4] = J[3][4]; J_reduce[3][5] = J[3][5];
-            J_reduce[4][0] = J[4][0]; J_reduce[4][1] = J[4][1]; J_reduce[4][2] = J[4][2]; J_reduce[4][3] = J[4][3]; J_reduce[4][4] = J[4][4]; J_reduce[4][5] = J[4][5];
-            J_reduce[5][0] = J[5][0]; J_reduce[5][1] = J[5][1]; J_reduce[5][2] = J[5][2]; J_reduce[5][3] = J[5][3]; J_reduce[5][4] = J[5][4]; J_reduce[5][5] = J[5][5];
-     */
 
             dq = -lambda * J.t() * (vpColVector) pose_err;
             for(unsigned int i=0;i<6;++i)

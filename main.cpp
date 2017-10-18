@@ -11,6 +11,8 @@ int main(int argc, char** argv)
     BaxterArm arm;    // defaults to simulation with right arm
     //BaxterArm arm(false, "left");   // real robot with left arm
 
+    arm.plot();
+
     arm.init();
 
     int it = 0;

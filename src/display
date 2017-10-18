@@ -3,12 +3,24 @@
 '''
 Plots relative joints and VS error
 '''
+import time
+
 import pylab as pl
 import roslib, rospy, rospkg
 from std_msgs.msg import Float32MultiArray
 import os
+import warnings
+import sys
+
+sys.tracebacklimit=0
+warnings.filterwarnings("ignore")
+
+sys.excepthook = lambda exctype,exc,traceback : 1
 
 side = "right"
+
+DT = 10
+rate = 10
 
 class Listener:
     def __init__(self, topic):
@@ -49,13 +61,15 @@ class Listener:
         self.lock = True
         if self.dim:
             idx = 0
-            while self.t[-1] - self.t[idx] > 10:
+            while self.t[-1] - self.t[idx] > DT:
                 idx += 1
             self.history = self.history[idx:]
             self.t = self.t[idx:]
             
             if len(self.lines):
                 try:
+                    if rospy.Time.now().to_sec() - self.t0 - self.t[-1] > 1:
+                        rospy.signal_shutdown('No more messages')
                     # update lines
                     for i in xrange(self.dim):
                         self.lines[i].set_data(self.t, [h[i] for h in self.history])
@@ -72,6 +86,7 @@ class Listener:
                         yM = max(y)
                         ym = min(y)
                     self.ax.axis((self.t[0],self.t[-1],ym - 0.05*(yM-ym), yM+0.05*(yM-ym)))
+                    self.F.canvas.draw()
                 except:
                     pass
                     
@@ -87,7 +102,7 @@ class Listener:
                 for i in xrange(self.dim):
                     col = plot_colors[i % len(plot_colors)]
                     mk = plot_markers[i % len(plot_markers)]
-                    self.lines += self.ax.plot([],[], col+mk+'-',label=names[i],linewidth=2)
+                    self.lines += self.ax.plot([],[], col+mk+'-',label=names[i],linewidth=2,markevery=DT*rate/10)
                     pl.legend(loc='center right')
 
                 if self.joints:
@@ -97,7 +112,9 @@ class Listener:
                 else:
                     # zero line
                     self.lines += self.ax.plot([],[],'k--')                
+            
         self.lock = False
+
         
 if __name__ == '__main__':
     '''
@@ -110,7 +127,7 @@ if __name__ == '__main__':
     pl.close('all')
     
     joint_listener = Listener("joints")
-    #vs_listener = Listener("vs")
+    vs_listener = Listener("vs")
     
     # get source file to read side... will do if binary has changed
     pkg = 'ecn_baxter_vs'
@@ -124,6 +141,8 @@ if __name__ == '__main__':
         ws = '/'.join(tree[:l])
     # get to binary file
     binary = ws + '/devel/.private/' + pkg + '/lib/' + pkg + '/baxter_vs'
+    
+    loop = rospy.Rate(rate)
     
     t0 = os.stat(binary).st_mtime
     while not rospy.is_shutdown():
@@ -144,9 +163,10 @@ if __name__ == '__main__':
         joint_listener.update()
         vs_listener.update()
         try:
-            pl.draw()
-            pl.pause(0.001)
+            pl.pause(1e-3)
         except:
             pass
 
-        rospy.sleep(0.01)
+        loop.sleep()
+        
+    pl.close('all')
