@@ -26,6 +26,9 @@ public:
     // default arm position
     void init();
 
+    // run the real-time plots
+    void plot();
+
     // operational (camera) space I/O
 
     void setCameraPose(vpHomogeneousMatrix _M);
@@ -71,7 +74,7 @@ public:
     {
         ros::spinOnce();
         loop_.sleep();
-        return ros::ok() && q_.euclideanNorm() != 0;
+        return q_.euclideanNorm() != 0;
     }
 
 
@@ -114,8 +117,9 @@ public:
 
     // ROS functions
     void readJointStates(const sensor_msgs::JointState::ConstPtr& msg);
-
     void readImage(const sensor_msgs::ImageConstPtr& msg);
+
+
 };
 
 

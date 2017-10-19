@@ -1,11 +1,12 @@
 #include <ecn_baxter_vs/baxter_arm.h>
 #include <urdf/model.h>
-#include <std_msgs/Float32MultiArray.h>
 #include <opencv2/highgui.hpp>
+#include <thread>
+#include <ros/package.h>
 
 using namespace std;
 
-BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_(10)
+BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_(10)
 {
     // in case of misspell
     if (_side != "left")
@@ -16,11 +17,11 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_
 
     // we detect green by default (sim)
     if(sim_)
-        cd_.detectColor(0, 255, 0);
+        detect(0, 255, 0);
     else if(lefty_)
-        cd_.detectColor(255,0,0);
+        detect(255,0,0, true);
     else
-        cd_.detectColor(255,0,0);
+        detect(255,0,0, true);
 
     std::cout << "BaxterArm initialized for " << _side << " arm ";
     if(sim_)
@@ -47,25 +48,29 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_
     // init joint limits
     // parse URDF to get robot data (name, DOF, joint limits, etc.)
     urdf::Model model;
+    // load Baxter description
+    std::string baxter_description = ros::package::getPath("ecn_baxter_vs");
+    baxter_description =    "rosparam set -t " +
+            baxter_description + "/launch/baxter.urdf " +
+            "/robot_description";
+    system(baxter_description.c_str());
 
-    if(nh_.hasParam("/robot_description"))
+    model.initParam("/robot_description");
+    q_min_.resize(7);
+    q_max_.resize(7);
+    v_max_.resize(7);
+    for(auto& joint: model.joints_)
     {
-        model.initParam("/robot_description");
-        q_min_.resize(7);
-        q_max_.resize(7);
-        v_max_.resize(7);
-        for(auto& joint: model.joints_)
+        for(unsigned int i=0;i<7;++i)
         {
-            for(unsigned int i=0;i<7;++i)
+            if(joint.second->name == cmd_msg_real.names[i])
             {
-                if(joint.second->name == cmd_msg_real.names[i])
-                {
-                    v_max_[i] = joint.second->limits->velocity;
-                    q_min_[i] = joint.second->limits->lower;
-                    q_max_[i] = joint.second->limits->upper;
-                }
+                v_max_[i] = joint.second->limits->velocity;
+                q_min_[i] = joint.second->limits->lower;
+                q_max_[i] = joint.second->limits->upper;
             }
-        }}
+        }
+    }
 
     // init fixed matrices
     // between wrist Fw and camera Fc
@@ -155,9 +160,16 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_
         image_publisher_ = it_.advertise("/robot/xdisplay", 100);
     }
 
+
     // visualization
-    joint_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/joints", 100);
-    vs_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("/display/" + _side + "/vs", 100);
+    joint_pub_ = nh_.advertise<sensor_msgs::JointState>("/" + group + "/joints", 100);
+    vs_pub_ = nh_.advertise<sensor_msgs::JointState>("/" + group + "/vs", 100);
+    // call display
+    std::stringstream ss;
+    ss << "rosrun ecn_baxter_vs display ";
+    ss << "__ns:=" << group << " &";
+    system(ss.str().c_str());
+
 
     // display image
     cv::namedWindow("Baxter");
@@ -375,10 +387,7 @@ int BaxterArm::fMw(const vpColVector &_q, vpHomogeneousMatrix &_M)
     return 0;
 }
 
-/**
- * @brief calcul modele geometrique inverse analytique ou iteratif
- * @details WRONG TODO
- */
+
 bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMatrix &_M_des, vpColVector &_q)
 {
     const double eMin = 0.1;
@@ -393,27 +402,13 @@ bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMat
     vpMatrix J(6,7), J_reduce(6,6);
     _q = _q0;
     std::cout << "Current pose: " << _q0 << std::endl;
-    //_q[6] = q_min_[6];
-    // while( nb_try < max_try)
     {
-        //   for (int i = 0; i < 6; ++i)     // random initial solution
-        //   {
-        //       _q[i] = q_min_[i] + static_cast <double> (rand()) /( static_cast <double> (RAND_MAX/(q_max_[i]-q_min_[i])));
-        //   }
-        //    std::cout << "Try number " << nb_try << " initial rand sol:: " << _q.t() << std::endl;
         iter = 0; e = 2*eMin;
         while(e > eMin && iter < max_iter)
         {
             fMw(_q, M);
             fJw(_q, J);
             pose_err.buildFrom(M*_M_des.inverse());
-            /*   J_reduce[0][0] = J[0][0]; J_reduce[0][1] = J[0][1]; J_reduce[0][2] = J[0][2]; J_reduce[0][3] = J[0][3]; J_reduce[0][4] = J[0][4]; J_reduce[0][5] = J[0][5];
-            J_reduce[1][0] = J[1][0]; J_reduce[1][1] = J[1][1]; J_reduce[1][2] = J[1][2]; J_reduce[1][3] = J[1][3]; J_reduce[1][4] = J[1][4]; J_reduce[1][5] = J[1][5];
-            J_reduce[2][0] = J[2][0]; J_reduce[2][1] = J[2][1]; J_reduce[2][2] = J[2][2]; J_reduce[2][3] = J[2][3]; J_reduce[2][4] = J[2][4]; J_reduce[2][5] = J[2][5];
-            J_reduce[3][0] = J[3][0]; J_reduce[3][1] = J[3][1]; J_reduce[3][2] = J[3][2]; J_reduce[3][3] = J[3][3]; J_reduce[3][4] = J[3][4]; J_reduce[3][5] = J[3][5];
-            J_reduce[4][0] = J[4][0]; J_reduce[4][1] = J[4][1]; J_reduce[4][2] = J[4][2]; J_reduce[4][3] = J[4][3]; J_reduce[4][4] = J[4][4]; J_reduce[4][5] = J[4][5];
-            J_reduce[5][0] = J[5][0]; J_reduce[5][1] = J[5][1]; J_reduce[5][2] = J[5][2]; J_reduce[5][3] = J[5][3]; J_reduce[5][4] = J[5][4]; J_reduce[5][5] = J[5][5];
-     */
 
             dq = -lambda * J.t() * (vpColVector) pose_err;
             for(unsigned int i=0;i<6;++i)
@@ -559,11 +554,33 @@ int BaxterArm::fJw(const vpColVector &_q, vpMatrix &_J)
     return 0;
 }
 
+
+void BaxterArm::plot(vpColVector err)
+{
+    sensor_msgs::JointState msg;
+    // plot normalized joint positions
+    msg.name = cmd_msg_real.names;
+    msg.position.resize(msg.name.size());
+    msg.header.frame_id = "Joint positions";
+    for(int i = 0; i< msg.name.size(); ++i)
+        msg.position[i] = (q_[i] - q_min_[i])/(q_max_[i] - q_min_[i]);
+    joint_pub_.publish(msg);
+
+    // plot VS error (x, y, a)
+    msg.name = {"x", "y", "area"};
+    msg.header.frame_id = "VS error";
+    if(err.getRows() == 2)
+        msg.position = {err[0], err[1], 0};
+    else
+        msg.position = {err[0], err[1], err[2]};
+    vs_pub_.publish(msg);
+}
+
+
 void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
 {
     const bool init = (q_.euclideanNorm() == 0);
-    std_msgs::Float32MultiArray msg;
-    msg.data.resize(7);
+
     for(unsigned int i=0;i<_msg->name.size();++i)
     {
         for(unsigned int j=0;j<7;++j)
@@ -574,13 +591,9 @@ void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
                     q_[j] = _msg->position[i];
                 else
                     q_[j] = 0.5*(q_[j] + _msg->position[i]);
-                // also publish normalized position (0 <= q <= 1)
-                msg.data[j] = (q_[j] - q_min_[j])/(q_max_[j] - q_min_[j]);
             }
         }
     }
-
-    joint_pub_.publish(msg);
 }
 
 void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
@@ -591,14 +604,7 @@ void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
     // process with color detector
     cv::Mat im_out;
 
-    if(cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out))
-    {
-
-        // publish result
-        std_msgs::Float32MultiArray msg;
-        msg.data = {(float) cd_.x(), (float) cd_.y(), (float) cd_.area()};
-        vs_pub_.publish(msg);
-    }
+    cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out);
     // display...
     cv::imshow("Baxter",im_out);
     cv::waitKey(1);
