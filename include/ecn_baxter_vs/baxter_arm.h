@@ -67,7 +67,7 @@ public:
     float x() {return cd_.x();}
     float y() {return cd_.y();}
     float area() {return cd_.area();}
-
+    float area_d() {return area_d_;}
     bool ok()
     {
         ros::spinOnce();
@@ -97,8 +97,7 @@ public:
 
     // some checks
     bool sim_, lefty_, is_init_ = false, im_ok = false;
-    // joints that have to avoid 0
-    std::vector<int> q_sign_;
+    double area_d_ =  0.05;    // simulation value
 
     // image
     image_transport::ImageTransport it_;

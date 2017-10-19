@@ -18,7 +18,6 @@ int main(int argc, char** argv)
 
     arm.init(); //
 
-
     vpColVector q(7),
                 qmin = arm.jointMin(),
                 qmax = arm.jointMax(),
@@ -32,12 +31,11 @@ int main(int argc, char** argv)
     vpColVector e(3);
     double x, y, area;
     // desired area
-    double area_d = 0.003;
+    double area_d = arm.area_d();
 
     // loop variables
     vpColVector qdot;
     vpMatrix L(3, 6), Js;
-
 
     while(arm.ok())
         {
@@ -57,15 +55,15 @@ int main(int argc, char** argv)
             // interaction matrix of (x,y)
             ecn::putAt(L, p.interaction(), 0, 0);
             // simplified interaction matrix of area
-            L[2][2] = 30*area;
+            L[2][2] = 5*area;
 
             // feature Jacobian
             Js = L * arm.cameraJacobian();
 
-            // to velocity setpoint
+            // to joint velocity setpoint
             qdot = -arm.lambda() * Js.pseudoInverse() * e;
 
-            // task
+            // to the robot
             arm.setJointVelocity(qdot);
 
             // display current joint positions and VS error
