@@ -16,7 +16,7 @@ class BaxterArm
 {
 public:
 
-    BaxterArm(bool _sim = true, std::string _side = "right");
+    BaxterArm(std::string group = "display", bool _sim = true, std::string _side = "right");
 
     // joint space I/O
     vpColVector jointPosition() {return q_;}
@@ -26,16 +26,14 @@ public:
     // default arm position
     void init();
 
-    // run the real-time plots
-    void plot();
-
     // operational (camera) space I/O
-
     void setCameraPose(vpHomogeneousMatrix _M);
     inline void setCameraPose(const vpPoseVector &_pose)
     {
         setCameraPose(vpHomogeneousMatrix(_pose));
     }
+
+    void plot(vpColVector err);
 
     void setCameraVelocity(vpColVector _velocity);
     vpHomogeneousMatrix cameraPose();   // aka camera -> base bMc
@@ -74,9 +72,8 @@ public:
     {
         ros::spinOnce();
         loop_.sleep();
-        return q_.euclideanNorm() != 0;
+        return q_.euclideanNorm() != 0 && im_ok;
     }
-
 
  protected:
     // ROS
@@ -98,7 +95,10 @@ public:
     vpHomogeneousMatrix wMc_, bMf_;
     vpVelocityTwistMatrix cWw_, fRRb_;
 
-    bool sim_, lefty_, is_init_ = false;
+    // some checks
+    bool sim_, lefty_, is_init_ = false, im_ok = false;
+    // joints that have to avoid 0
+    std::vector<int> q_sign_;
 
     // image
     image_transport::ImageTransport it_;

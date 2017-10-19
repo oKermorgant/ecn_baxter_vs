@@ -21,7 +21,7 @@ BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim
     else if(lefty_)
         detect(255,0,0, true);
     else
-        detect(255,0,0, true);
+        detect(0,255,0, true);
 
     std::cout << "BaxterArm initialized for " << _side << " arm ";
     if(sim_)
@@ -65,7 +65,7 @@ BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim
         {
             if(joint.second->name == cmd_msg_real.names[i])
             {
-                v_max_[i] = joint.second->limits->velocity;
+                v_max_[i] = .5*joint.second->limits->velocity;
                 q_min_[i] = joint.second->limits->lower;
                 q_max_[i] = joint.second->limits->upper;
             }
@@ -185,6 +185,7 @@ void BaxterArm::detect(int r, int g, int b, bool show_segment)
     cd_.fitCircle();
     if(show_segment)
         cd_.showSegmentation();
+    cd_.setSaturationValue(100, 60);
 }
 
 void BaxterArm::init()
@@ -196,8 +197,17 @@ void BaxterArm::init()
     q[3] = 1.64;
     q[5] = -.55;
 
+    q_sign_.resize(7,0);
     setJointPosition(q);
     std::cout << " done. \n";
+
+    for(int i : {3, 5})
+    {
+        q_sign_[i] = 1;
+        if(q[i] < 0)
+            q_sign_[i] = -1;
+    }
+
     is_init_ = true;
 }
 
@@ -206,7 +216,7 @@ void BaxterArm::setJointPosition(vpColVector _q)
 {
     ros::Rate loop(10);
     // wait to receive joint states
-    while(!ok())
+    while(q_.euclideanNorm() != 0)
     {
         ros::spinOnce();
         loop.sleep();
@@ -249,6 +259,27 @@ void BaxterArm::setJointPosition(vpColVector _q)
 
 void BaxterArm::setJointVelocity(vpColVector _qdot)
 {
+    const double alpha = 5;
+    const double qmin = .2;
+
+
+    // saturate and check joint sign
+    for(int i = 0; i < 7; ++i)
+    {
+        _qdot[i] = min(v_max_[i], max(-v_max_[i], _qdot[i]));
+
+        if(q_sign_[i] > 0)      // joint must stay > .2
+        {
+            if(_qdot[i] < alpha*(qmin - q_[i]))
+                _qdot[i] = alpha*(qmin - q_[i]);
+        }
+        else if(q_sign_[i] < 0) // joint must stay below -.2
+        {
+            if(_qdot[i] > alpha*(-qmin - q_[i]))
+                _qdot[i] = alpha*(-qmin - q_[i]);
+        }
+    }
+
     if(sim_)    {
         // simulation uses classical JointState message
         for(int i=0;i<7;++i)
@@ -604,7 +635,7 @@ void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
     // process with color detector
     cv::Mat im_out;
 
-    cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out);
+    im_ok = cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out) || im_ok;
     // display...
     cv::imshow("Baxter",im_out);
     cv::waitKey(1);

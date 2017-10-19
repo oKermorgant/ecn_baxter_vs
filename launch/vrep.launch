@@ -4,6 +4,5 @@
     <include file="$(find vrep_ros_interface)/vrep.launch">
         <arg name="scene" value="$(find ecn_baxter_vs)/scene/baxter.ttt"/>
     </include>
-    
-    <param name="/robot_description" command="$(find xacro)/xacro --inorder $(find baxter_description)/urdf/baxter.urdf.xacro"/>
+
 </launch>
