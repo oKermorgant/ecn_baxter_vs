@@ -110,7 +110,7 @@ if __name__ == '__main__':
     pl.close('all')
     
     joint_listener = Listener("joints")
-    #vs_listener = Listener("vs")
+    vs_listener = Listener("vs")
     
     # get source file to read side... will do if binary has changed
     pkg = 'ecn_baxter_vs'
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     # get to binary file
     binary = ws + '/devel/.private/' + pkg + '/lib/' + pkg + '/baxter_vs'
     
-    t0 = os.stat(binary).st_mtime
+    t0 = 0
     while not rospy.is_shutdown():
         t = os.stat(binary).st_mtime
         if t - t0 > 1:
@@ -137,9 +137,10 @@ if __name__ == '__main__':
             side = 'right'
             for line in content:
                 if 'BaxterArm' in line:
-                    if 'left' in line:
-                        side = 'left'
-                    break
+		    if '//' not in line or line.find('//') > line.find('BaxterArm'):
+                        if 'left' in line:
+                            side = 'left'
+                        break
         
         joint_listener.update()
         vs_listener.update()

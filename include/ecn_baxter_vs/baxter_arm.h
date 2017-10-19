@@ -95,7 +95,7 @@ public:
     vpHomogeneousMatrix wMc_, bMf_;
     vpVelocityTwistMatrix cWw_, fRRb_;
 
-    bool sim_, lefty_;
+    bool sim_, lefty_, is_init_ = false;
 
     // image
     image_transport::ImageTransport it_;

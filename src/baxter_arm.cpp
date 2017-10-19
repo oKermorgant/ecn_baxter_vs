@@ -20,7 +20,7 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_
     else if(lefty_)
         cd_.detectColor(255,0,0);
     else
-        cd_.detectColor(255,255,0);
+        cd_.detectColor(255,0,0);
 
     std::cout << "BaxterArm initialized for " << _side << " arm ";
     if(sim_)
@@ -170,6 +170,7 @@ BaxterArm::BaxterArm(bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_
 void BaxterArm::detect(int r, int g, int b, bool show_segment)
 {
     cd_.detectColor(r, g, b);
+    cd_.fitCircle();
     if(show_segment)
         cd_.showSegmentation();
 }
@@ -185,6 +186,7 @@ void BaxterArm::init()
 
     setJointPosition(q);
     std::cout << " done. \n";
+    is_init_ = true;
 }
 
 
@@ -206,7 +208,7 @@ void BaxterArm::setJointPosition(vpColVector _q)
 
         int it = 0;
         double lambda = 2;
-        while((_q - q_).euclideanNorm() > 1e-3 && it < 1000)
+        while((_q - q_).euclideanNorm() > 1e-3 && it < 1000 && ros::ok())
         {
             if ((_q - q_).euclideanNorm() < 1e-2)
                 lambda = 5;
@@ -222,11 +224,11 @@ void BaxterArm::setJointPosition(vpColVector _q)
             cmd_msg_real.command[i] = _q[i];
         cmd_msg_real.mode = 1;
         int it = 0;
-        while((_q - q_).euclideanNorm() > 1e-3 && it < 1000)
+        while((_q - q_).euclideanNorm() > 5e-3 && it < 1000 && ros::ok())
         {
             it++;
             cmd_pub_.publish(cmd_msg_real);
-            std::cout << "Reaching desired position, error=" << (_q - q_).euclideanNorm() << '\n';
+            std::cout << "Reaching desired position, error=" << (_q - q_).euclideanNorm() << std::endl;
             ros::spinOnce();
             loop.sleep();
         }
@@ -583,15 +585,20 @@ void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
 
 void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
 {
+    if(!is_init_)
+        return;
+
     // process with color detector
     cv::Mat im_out;
 
-    cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out);
+    if(cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out))
+    {
 
-    // publish result
-    std_msgs::Float32MultiArray msg;
-    msg.data = {(float) cd_.x(), (float) cd_.y(), (float) cd_.area()};
-    vs_pub_.publish(msg);
+        // publish result
+        std_msgs::Float32MultiArray msg;
+        msg.data = {(float) cd_.x(), (float) cd_.y(), (float) cd_.area()};
+        vs_pub_.publish(msg);
+    }
     // display...
     cv::imshow("Baxter",im_out);
     cv::waitKey(1);
