@@ -1,8 +1,13 @@
 <?xml version="1.0"?>
 <launch>
 
-    <include file="$(find vrep_ros_interface)/vrep.launch">
+    <include file="$(find vrep_ros_launcher)/vrep.launch">
         <arg name="scene" value="$(find ecn_baxter_vs)/scene/baxter.ttt"/>
     </include>
+    
+    <param name="robot_description" textfile="$(find baxter_description)/urdf/baxter.urdf" />
+    
+    <node name="robot_state_publisher" type="robot_state_publisher" pkg="robot_state_publisher" ns="vrep_ros_interface"/>
 
+    
 </launch>
