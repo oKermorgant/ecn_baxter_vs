@@ -2,7 +2,8 @@
 #include <ecn_baxter_vs/baxter_arm.h>
 #include <visp/vpSubMatrix.h>
 #include <visp/vpSubColVector.h>
-#include <ecn_common/optim.h>
+#include <ecn_common/vpQuadProg.h>
+#include <ecn_common/visp_utils.h>
 
 using namespace std;
 
@@ -37,6 +38,12 @@ int main(int argc, char** argv)
     vpColVector qdot;
     vpMatrix L(3, 6), Js;
 
+    // solver and QP matrices
+    vpQuadProg qp;
+    vpMatrix C(0,7);
+    vpColVector d(0);
+
+
     while(arm.ok())
         {
             cout << "-------------" << endl;
@@ -61,7 +68,9 @@ int main(int argc, char** argv)
             Js = L * arm.cameraJacobian();
 
             // to joint velocity setpoint
-            qdot = -arm.lambda() * Js.pseudoInverse() * e;
+            // qdot = arg min |Js.qdot - (-lambda.e)|^2
+            //              s.t. C.qdot <= d
+            qp.solveQPi(Js, -arm.lambda()*e, C, d, qdot);
 
             // to the robot
             arm.setJointVelocity(qdot);

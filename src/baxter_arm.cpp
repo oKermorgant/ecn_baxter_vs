@@ -56,6 +56,8 @@ BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim
     system(baxter_description.c_str());
 
     model.initParam("/robot_description");
+
+
     q_min_.resize(7);
     q_max_.resize(7);
     v_max_.resize(7);
