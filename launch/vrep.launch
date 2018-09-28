@@ -7,7 +7,7 @@
     
     <param name="robot_description" textfile="$(find baxter_description)/urdf/baxter.urdf" />
     
-    <node name="robot_state_publisher" type="robot_state_publisher" pkg="robot_state_publisher" ns="vrep_ros_interface"/>
+    <!--<node name="robot_state_publisher" type="robot_state_publisher" pkg="robot_state_publisher" ns="vrep_ros_interface"/>-->
 
     
 </launch>

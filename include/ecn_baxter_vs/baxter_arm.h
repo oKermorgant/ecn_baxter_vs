@@ -11,12 +11,13 @@
 #include <cv_bridge/cv_bridge.h>
 #include <ecn_common/color_detector.h>
 #include <ctime>
+#include <memory>
 
 class BaxterArm
 {
 public:
 
-    BaxterArm(std::string group = "display", bool _sim = true, std::string _side = "right");
+    BaxterArm(int argc, char** argv, std::string group = "display", bool _sim = true, std::string _side = "right");
 
     // joint space I/O
     vpColVector jointPosition() {return q_;}
@@ -24,7 +25,7 @@ public:
     void setJointVelocity(vpColVector _qdot);
 
     // default arm position
-    void init();
+    vpColVector init();
 
     // operational (camera) space I/O
     void setCameraPose(vpHomogeneousMatrix _M);
@@ -40,10 +41,21 @@ public:
 
     // Jacobian in camera frame
     int cameraJacobian(const vpColVector &_q, vpMatrix &_cJc);
-    vpMatrix cameraJacobian()
+    vpMatrix cameraJacobian(std::vector<int> joints = {})
     {
         vpMatrix J(6,7);
         cameraJacobian(q_, J);
+        if(joints.size() != 0)
+        {
+            for(int j = 0; j < 7; ++j)
+            {
+                if(std::find(joints.begin(), joints.end(), j) == joints.end())
+                {
+                    for(int i = 0; i < 6; ++i)
+                        J[i][j] = 0;
+                }
+            }
+        }
         return J;
     }
 
@@ -71,15 +83,15 @@ public:
     bool ok()
     {
         ros::spinOnce();
-        loop_.sleep();
+        loop_->sleep();
         return q_.euclideanNorm() != 0 && im_ok;
     }
 
  protected:
     // ROS
-    ros::NodeHandle nh_;
+    std::unique_ptr<ros::NodeHandle> nh_;
     ros::Publisher cmd_pub_;
-    ros::Rate loop_;
+    std::unique_ptr<ros::Rate> loop_;
     ros::Subscriber joint_subscriber_;
     std::vector<std::string> names_;
     sensor_msgs::JointState cmd_msg_sim;
@@ -100,7 +112,7 @@ public:
     double area_d_ =  0.05;    // simulation value
 
     // image
-    image_transport::ImageTransport it_;
+    std::unique_ptr<image_transport::ImageTransport> it_;
     image_transport::Subscriber image_subscriber_;
     image_transport::Publisher image_publisher_;
     ecn::ColorDetector cd_;

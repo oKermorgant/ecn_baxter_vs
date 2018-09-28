@@ -1,0 +1,193 @@
+\documentclass{ecnreport}
+
+\stud{M2 CORO-IMARO}
+\topic{Sensor-based control}
+
+\begin{document}
+
+\inserttitle{Sensor-based control lab}
+
+\insertsubtitle{Labs 2: Robot arm control}
+
+\section{Content of this lab}
+
+The goal is this lab is to control one arm of the Baxter robot, first in simulation then on the real robot. 
+
+The robot is simulated with V-REP\footnote{Virtual robot experimentation platform, http://www.coppeliarobotics.com/}.
+In the simulation is placed a green sphere. The goal is to move the arm so that the sphere is centered and at a given distance from the camera.
+The robot control will be performed in C++ and will rely on:
+
+\begin{itemize}
+ \item The ROS framework to handle communication between the simulator and the control program (actually hidden inside the robot class).
+ \item The ViSP library\footnote{Visual Servoing Platform, http://visp.inria.fr} to manipulate vectors and matrices and to perform linear algebra.
+\end{itemize}
+The actual classes that are used are detailed in Appendix \ref{sec:classes}.\\
+
+\subsection{Environment setup}
+
+ROS environment should already be set up in the computers. 
+In order to use an IDE like Qt Creator, you should open a terminal and launch the IDE from the command line.\\ A tutorial on how to use Qt Creator (or any other IDE 
+able to load CMake files) can be found on my webpage: \url{http://pagesperso.ls2n.fr/~kermorgant-o/coding\%20tools.html#config}.\\
+
+This lab is available on GitHub as a ROS package called \texttt{ecn\_sensorbased}. 
+On the P-ro computers, it can be downloaded and compiled using \texttt{rosdl ecn\_baxter\_vs}\\
+
+If you want to do it manually, you should first go in the \texttt{ros/src} directory. The package can then be downloaded through git:
+\begin{center}\cppstyle
+\begin{lstlisting}
+ git clone https://github.com/oKermorgant/ecn_baxter_vs.git
+\end{lstlisting}
+\end{center}
+Remember to call {\tt{catkin build}} after downloading the packages in your ROS workspace, and before trying to load it in the IDE.
+
+\subsection{Structure of the \texttt{ecn\_baxter\_vs} package}
+
+The only file to be modified is \texttt{main.cpp}, which is the main file for the C++ program. \\
+The simulation can be launched with: \texttt{roslaunch ecn\_baxter\_vs vrep.launch}.
+
+When both the simulation and the control program run, the ROS graph looks like this:
+
+\begin{figure}[h!]\centering
+ \includegraphics[width=.6\linewidth]{rosgraph}
+ \caption{ROS graph showing nodes (ellipses) and communication topics (rectangles)}
+ \label{fig:rosgraph}
+\end{figure}
+
+We can see that the simulator sends the joint states and the camera image to the control node. In return, the control node sends the joint setpoints
+to the simulator. It also sends data to be displayed by the \texttt{display} node.\\
+
+
+\subsection{The Baxter robot (arm)}
+
+The considered robot is one arm of Baxter. A camera is placed at inside the end-effector of the robot.
+ The robot is controlled through joint velocity $\dot \q$.
+ In the initial state of the control node, the error and interaction matrix are not computed, inducing a null joint velocity setpoint.
+ 
+\section{Expected work}
+
+\subsection{Basic visual servoing}
+
+The first goal is to actually compute a classical visual servoing. The features are defined as $\s = (x, y, a)$ where $(x,y)$ is the position of the center of gravity of the sphere and $a$ is its area in the image.
+
+The current features are accessed through \texttt{arm.x(), arm.x(), arm.x()} while the desired ones are set to 0 for $(x,y)$ and defined in \texttt{area\_d} for the area. 
+The error vector \texttt{e} has to be defined from the current and desired features.
+
+Similarly, the interaction matrix of $\s$ should be defined in \texttt{L}. The feature Jacobian, that expresses the time-variation of $\s$ with regards to $\dot \q$ should then be computed
+from \texttt{L} and \texttt{arm.cameraJacobian()}.
+
+The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e$. Of course this control law does not take into account the joint limits.
+
+\subsection{Visual servoing with joint limits}
+
+We will use the augmented Jacobian framework\footnote{O. Kermorgant, F. Chaumette. Dealing with constraints in sensor-based robot control. In IEEE Trans. on Robotics, Feb 2014}.
+In this framework, the constraints are modeled as additional sensor features. The desired value simply corresponds to the avoidance direction, and can usually be defined by using the center of the valid interval: $\q^* = \frac{1}{2}(\q^+ + \q^-)$.
+
+A safe interval $(\q^{s-}, \q^{s+})$ has to be defined with a margin $\rho\in]0.5,1[$ with:
+\begin{equation*}
+\left\{\begin{array}{ll}
+	\q^{s+} = & \q^{+} - \rho(\q^+ - \q^-) \\
+	\q^{s-} = & \q^{-} + \rho(\q^+ - \q^-)
+\end{array}\right.
+\end{equation*}
+
+Then, instead of minimizing $\norm{\J\dot \q + \lambda\e}^2$ we use the weighted sum:\\ $\displaystyle \dot \q = \argmin \norm{\J\dot \q + \lambda\e}^2 + \sum_{i=1}^n h_i\norm{\dot q_i + \lambda(q_i - q_i^*)}^2$ where $h_i(q_i)$ is a weighting function such as the one in \Fig{weight}.
+\begin{figure}\centering
+	\includegraphics[width=.7\linewidth]{constraint_0inf}
+	\caption{Typical weighting function from $(s^-, s^{s-}, s^{s+}, s^+)$}
+	\label{weight}		
+\end{figure}
+
+This can be written in matrix form: 
+\begin{center}
+	$\dot \q = \arg\min \norm{\H\tilde\J\dot \q + \lambda\H\tilde\e}^2$ \\
+ where: $\H = \left[\begin{array}{cc}\I_3 & 0 \\ 0 & \diag{h_i}\end{array}\right]$,
+ $\tilde\J = \left[\begin{array}{c}\J \\ \I_n \end{array}\right]$ and
+  $\tilde\e = \left[\begin{array}{c}\e \\ \q - \q^* \end{array}\right]$
+\end{center}
+The solution to the minimization can be explicitly written as $\dot \q = -\lambda(\H\tilde\J)^+\H\tilde\e$.\\
+
+\subsection{Visual servoing and joint control with joint limits }
+
+If we use the above formulation then the robot avoids its joint limits but the control law may be discontinuous. Indeed, $(\H\tilde\J)$ is a $10\times 7$ matrix whose rank may vary from 3 (only visual features active) to 7 (at least 4 joints close to their limits). A solution is to set arbitrary values for 4 joints. \\
+
+A good choice is to use the default value (output of \texttt{arm.init()}) as desired value for joints $4\hdots7$ and keep their weight equal to 1. 
+The joints $1\hdots 3$ will be used for the visual servoing while avoiding their limits.
+
+\subsection{Use on the real robot}
+
+If the simulation is working, the only thing to modify to run on the real robot is the \texttt{Baxter arm} declaration. You should indicate your group name and whether you want to control the left or right arm. The visual detector is designed to detect green objects on the right camera and red objects on the left one. An additional image processing window will open in order to tune the Hue and Saturation thresholds, that may depend on the light conditions.\\
+
+In order to be connected to Baxter, you have to be in the \texttt{ros} workspace and first run \texttt{source baxter.sh}. 
+
+\appendix
+
+\section{Main classes and tools}\label{sec:classes}
+
+\subsection{ViSP classes}
+
+This library includes many tools for linear algebra, especially for 3D transformations. 
+The documentation is found here: \url{http://visp-doc.inria.fr/doxygen/visp-daily/classes.html}.\\
+The main classes from ViSP (at least in this lab) are:
+\begin{itemize}
+\item \texttt{vpMatrix} represents a classical matrix, can then be transposed, inversed (or pseudo-inversed), multiplied with a vector, etc.
+\item \texttt{vpColVector} is a column vector with classical mathematical properties.
+\end{itemize}
+These class can be declared and used as follows:
+\begin{center}\cppstyle
+\begin{lstlisting}
+       vpMatrix M(2,6); 	// matrix of dim. 2x6
+       M[0][0] = M[1][1] = 1;	// element-wise assignment
+       vpColVector v(6);	// column vector of dim. 6
+       v[0] = 1;		// element-wise assignment
+       M*v;			// matrix-vector multiplication
+\end{lstlisting}
+\end{center}
+%
+%\subsection{The Baxter class}
+%\label{baxter}
+%The Baxter class hides all the ROS communication aspects in order to have a higher-level access. As this is not a lab on robot modeling, all Jacobians are already 
+%available - even if it could be a nice exercice to compute the camera Jacobian. 
+%
+%The main methods of the \texttt{Baxter} class can be seen in the \texttt{baxter\_arm.h} file:
+%\begin{itemize}
+% \item Getters for robot model or measurements:
+% \begin{itemize}
+%  \item \texttt{double robot.radius()}, \texttt{robot.base()}, \texttt{robot.wmax()} : kinematic model.
+%  \item \texttt{void robot.getImagePoint(vpColVector \&)}: get the measured center of gravity of the sphere in the image, in normalized coordinates.
+%  \item \texttt{vpColVector robot.getCamLimits()}: get the upper bounds for $(x,y)$. Lower bounds are the opposite.
+%  \item \texttt{vpMatrix robot.getCamJacobian()}: get the Jacobian between the camera velocity screw in its own frame and the robot command $\dot \q$. This Jacobian is to be multiplied
+%  by the interaction matrix of a point to get the actual Jacobian of the image coordinates with regards to the robot command.
+% \end{itemize}
+%\item \texttt{robot.setVelocity(vpColVector)}: send a $\dot \q$ velocity. Wheel velocity limits will be applied before actually sending it to the simulator.
+%\end{itemize}
+
+% 
+% \begin{itemize}
+%  \item \texttt{setVelocity(vpColVector)}: sends a $(v, \omega, \dot q_p, \dot q_t)$ velocity to the robot, wheels velocity limits will be ensured
+%  \item \texttt{getImagePoint(vpColVector \&)}: gives the current position (normalized coordinates) of the sphere in the image
+% \end{itemize}
+
+\subsection{Utility functions}
+
+In addition to the given classes and solvers, several utility function are defined:
+\begin{itemize}
+ \item \texttt{void ecn::putAt(M, Ms, r, c)}: Writes matrix \texttt{Ms} inside matrix \texttt{M}, starting from given row and column.
+ \item \texttt{void ecn::putAt(V, Vs, r)}: Writes column vector \texttt{Vs} inside vector \texttt{V}, starting from given row. These two functions do nothing but print an error
+ if the submatrix or vector does not fit in the main one.
+ \item \texttt{double ecn::weight(s, s\_act, s\_max)}: Returns the weighting function defined during the lectures:
+ \begin{equation*}
+  h = \left\{\begin{array}{cl}
+              0 & \text{if } s < s_{\text{act}} \\
+              \displaystyle \frac{s-s_{\text{act}}}{s_{\max}-s} & \text{otherwise}
+             \end{array}\right.
+ \end{equation*}This function is designed for upper bounds (ie. assumes that $s_{\text{act}} < s_{\text{max}}$), but can be easily used for lower bounds by sending the opposite values formulation
+ $(-s,-s_{\text{act}}, -s_{\max})$.
+\item \texttt{double ecn::weightBothSigns(s, s\_act, s\_max)}: Returns the weighting function considering both lower and upper bounds, assuming opposite bounds (
+which is true for the wheel velocities and the visibility).
+\end{itemize}
+
+
+
+
+
+\end{document}

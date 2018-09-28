@@ -6,8 +6,14 @@
 
 using namespace std;
 
-BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim_(_sim), loop_(10)
+BaxterArm::BaxterArm(int argc, char** argv, string group, bool _sim, std::string _side) : sim_(_sim)
 {
+    ros::init(argc, argv, "control_node");
+
+    nh_ = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle());
+    it_ = std::unique_ptr<image_transport::ImageTransport>(new image_transport::ImageTransport(*nh_));
+    loop_ = std::unique_ptr<ros::Rate>(new ros::Rate(10));
+
     // in case of misspell
     if (_side != "left")
         _side = "right";
@@ -132,13 +138,13 @@ BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim
     if(sim_)
     {
         // publisher to joint command
-        cmd_pub_ = nh_.advertise<sensor_msgs::JointState>("/vrep_ros_interface/joint_command", 100);
+        cmd_pub_ = nh_->advertise<sensor_msgs::JointState>("/vrep_ros_interface/joint_command", 100);
 
         // subscriber to joint states
-        joint_subscriber_ = nh_.subscribe("/vrep_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
+        joint_subscriber_ = nh_->subscribe("/vrep_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
 
         // set image to None, subscriber instantiated in the image setter
-        image_subscriber_ = it_.subscribe("/vrep_ros_interface/camera/"+_side, 1, &BaxterArm::readImage, this);
+        image_subscriber_ = it_->subscribe("/vrep_ros_interface/camera/"+_side, 1, &BaxterArm::readImage, this);
 
         // camera parameters
         cd_.setCamera(640, 480, 90);
@@ -149,13 +155,13 @@ BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim
         area_d_ = 0.03;
 
         // publisher to joint command
-        cmd_pub_ = nh_.advertise<baxter_core_msgs::JointCommand>("/robot/limb/"+_side+"/joint_command", 100);
+        cmd_pub_ = nh_->advertise<baxter_core_msgs::JointCommand>("/robot/limb/"+_side+"/joint_command", 100);
 
         // subscriber to joint states
-        joint_subscriber_ = nh_.subscribe("/robot/joint_states", 1000, &BaxterArm::readJointStates, this);
+        joint_subscriber_ = nh_->subscribe("/robot/joint_states", 1000, &BaxterArm::readJointStates, this);
 
         // set image to None, subscriber instantiated in the image setter
-        image_subscriber_ = it_.subscribe("/cameras/"+_side+"_hand_camera/image", 1, &BaxterArm::readImage, this);
+        image_subscriber_ = it_->subscribe("/cameras/"+_side+"_hand_camera/image", 1, &BaxterArm::readImage, this);
 
         // camera parameters
         if(lefty_)
@@ -164,13 +170,13 @@ BaxterArm::BaxterArm(string group, bool _sim, std::string _side) : it_(nh_), sim
             cd_.setCamera(404.38,404.38,323.58,196.39);
 
         // publisher to Baxter image
-        image_publisher_ = it_.advertise("/robot/xdisplay", 100);
+        image_publisher_ = it_->advertise("/robot/xdisplay", 100);
     }
 
 
     // visualization
-    joint_pub_ = nh_.advertise<sensor_msgs::JointState>("/" + group + "/joints", 100);
-    vs_pub_ = nh_.advertise<sensor_msgs::JointState>("/" + group + "/vs", 100);
+    joint_pub_ = nh_->advertise<sensor_msgs::JointState>("/" + group + "/joints", 100);
+    vs_pub_ = nh_->advertise<sensor_msgs::JointState>("/" + group + "/vs", 100);
     // call display
     std::stringstream ss;
     ss << "rosrun ecn_baxter_vs display ";
@@ -195,7 +201,7 @@ void BaxterArm::detect(int r, int g, int b, bool show_segment)
     cd_.setSaturationValue(100, 60);
 }
 
-void BaxterArm::init()
+vpColVector BaxterArm::init()
 {
     std::cout << "Going to init position... ";
     vpColVector q(7);
@@ -209,6 +215,7 @@ void BaxterArm::init()
 
 
     is_init_ = true;
+    return q;
 }
 
 
@@ -622,7 +629,6 @@ void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
             || im_ok;
 
     // add setpoint
-    cout << "Desired radius: " << int(sqrt(area_d_/M_PI)) << std::endl;
     cv::circle(im_out, cv::Point(cd_.cam.u0, cd_.cam.v0),
                int(sqrt(area_d_*cd_.cam.px*cd_.cam.py/M_PI)),
                cv::Scalar(0,255,0), 2);
