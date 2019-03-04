@@ -75,7 +75,7 @@ The error vector \texttt{e} has to be defined from the current and desired featu
 Similarly, the interaction matrix of $\s$ should be defined in \texttt{L}. The feature Jacobian, that expresses the time-variation of $\s$ with regards to $\dot \q$ should then be computed
 from \texttt{L} and \texttt{arm.cameraJacobian()}.
 
-The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e$. Of course this control law does not take into account the joint limits.
+The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e$. Of course this control law does not take into account the joint limits. \\The gain $\lambda$ should be equal to \texttt{arm.lambda()}, in order to be tuned online from the Baxter image window slider.
 
 \subsection{Visual servoing with joint limits}
 
