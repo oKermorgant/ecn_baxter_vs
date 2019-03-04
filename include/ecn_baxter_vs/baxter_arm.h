@@ -70,9 +70,9 @@ public:
     return inverseKinematics(q_, _M_des, _q);
   }
 
-  inline vpColVector jointMin() const {return q_min_;}
-  inline vpColVector jointMax() const {return q_max_;}
-  inline vpColVector velocityMax() const {return v_max_;}
+  inline vpColVector jointMin(){return q_min_;}
+  inline vpColVector jointMax() {return q_max_;}
+  inline vpColVector velocityMax() {return v_max_;}
   inline double lambda() const {return 0.1*lambda_;}
   inline double rho() const {return 0.01*rho_;}
 
@@ -123,6 +123,7 @@ protected:
   image_transport::Subscriber image_subscriber_;
   image_transport::Publisher image_publisher_;
   ecn::ColorDetector cd_;
+  int lost_count = 0;
 
   // joint limits
   vpColVector q_min_, q_max_, v_max_;

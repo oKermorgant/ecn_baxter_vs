@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     const double area_d = arm.area_d();
 
     // loop variables
-    vpColVector qdot;
+    vpColVector qdot(7);
     vpMatrix L(3, 6), Js(3,7);
 
     while(arm.ok())

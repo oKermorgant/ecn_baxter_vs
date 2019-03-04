@@ -272,9 +272,17 @@ void BaxterArm::setJointPosition(vpColVector _q)
 
 void BaxterArm::setJointVelocity(vpColVector _qdot)
 {
-  // saturate
-  for(int i = 0; i < 7; ++i)
-    _qdot[i] = min(v_max_[i], max(-v_max_[i], _qdot[i]));
+  if(is_init_ && lost_count > 10)
+  {
+    std::cout << "Object lost, not moving" << std::endl;
+    _qdot = 0;
+  }
+  else
+  {
+    // saturate
+    for(int i = 0; i < 7; ++i)
+      _qdot[i] = min(v_max_[i], max(-v_max_[i], _qdot[i]));
+  }
 
   if(sim_)    {
     // simulation uses classical JointState message
@@ -631,7 +639,14 @@ void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
   // process with color detector
   cv::Mat im_out;
 
-  im_ok = cd_.process(_msg, im_out) || im_ok;
+  const auto detected = cd_.process(_msg, im_out);
+
+  im_ok = detected || im_ok;
+
+  if(detected && cd_.area() > 0.002)
+    lost_count = 0;
+  else
+    lost_count++;
 
   // add setpoint
   cv::circle(im_out, cv::Point(cd_.cam.u0, cd_.cam.v0),
