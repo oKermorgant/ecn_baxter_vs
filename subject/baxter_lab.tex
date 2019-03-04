@@ -82,7 +82,7 @@ The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e
 We will use the augmented Jacobian framework\footnote{O. Kermorgant, F. Chaumette. Dealing with constraints in sensor-based robot control. In IEEE Trans. on Robotics, Feb 2014}.
 In this framework, the constraints are modeled as additional sensor features. The desired value simply corresponds to the avoidance direction, and can usually be defined by using the center of the valid interval: $\q^* = \frac{1}{2}(\q^+ + \q^-)$.
 
-A safe interval $(\q^{s-}, \q^{s+})$ has to be defined with a margin $\rho\in]0.5,1[$ with:
+A safe interval $(\q^{s-}, \q^{s+})$ has to be defined with a margin $\rho\in]0.,0.5[$ with:
 \begin{equation*}
 \left\{\begin{array}{ll}
 	\q^{s+} = & \q^{+} - \rho(\q^+ - \q^-) \\

@@ -52,8 +52,9 @@ int main(int argc, char** argv)
 
             // compute feature Jacobian from L and cameraJacobian
 
-            // build H matrix (2nd section)
+            // build H matrix (2nd section) using arm.rho()
             q = arm.jointPosition();
+
 
             // send this command to the robot
             arm.setJointVelocity(qdot);
