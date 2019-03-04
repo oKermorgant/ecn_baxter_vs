@@ -129,6 +129,7 @@ This library includes many tools for linear algebra, especially for 3D transform
 The documentation is found here: \url{http://visp-doc.inria.fr/doxygen/visp-daily/classes.html}.\\
 The main classes from ViSP (at least in this lab) are:
 \begin{itemize}
+\item \texttt{vpFeaturePoint} (variable \texttt{p}) represents a Cartesian 2D point as feature. It can be updated with \texttt{p.set\_xyZ(x,y, 1);}. The main interest is that the corresponding $2\times 6$ interaction matrix can be retrieved by \texttt{p.interaction();}
 \item \texttt{vpMatrix} represents a classical matrix, can then be transposed, inversed (or pseudo-inversed), multiplied with a vector, etc.
 \item \texttt{vpColVector} is a column vector with classical mathematical properties.
 \end{itemize}

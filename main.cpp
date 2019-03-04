@@ -29,7 +29,7 @@ int main(int argc, char** argv)
     vpColVector e(3);
     double x, y, area;
     // desired area
-    double area_d = arm.area_d();
+    const double area_d = arm.area_d();
 
     // loop variables
     vpColVector qdot;

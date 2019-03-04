@@ -40,8 +40,8 @@ public:
     vpHomogeneousMatrix cameraPose();   // aka camera -> base bMc
 
     // Jacobian in camera frame
-    int cameraJacobian(const vpColVector &_q, vpMatrix &_cJc);
-    vpMatrix cameraJacobian(std::vector<int> joints = {})
+    int cameraJacobian(const vpColVector &_q, vpMatrix &_cJc) const ;
+    vpMatrix cameraJacobian(std::vector<int> joints = {}) const
     {
         vpMatrix J(6,7);
         cameraJacobian(q_, J);
@@ -69,17 +69,17 @@ public:
         return inverseKinematics(q_, _M_des, _q);
     }
 
-    inline vpColVector jointMin() {return q_min_;}
-    inline vpColVector jointMax() {return q_max_;}
-    inline vpColVector velocityMax() {return v_max_;}
-    inline int lambda() {return lambda_;}
+    inline vpColVector jointMin() const {return q_min_;}
+    inline vpColVector jointMax() const {return q_max_;}
+    inline vpColVector velocityMax() const {return v_max_;}
+    inline double lambda() const {return 0.1*lambda_;}
 
     // camera part
     void detect(int r, int g ,int b, bool show_segment = false);
-    float x() {return cd_.x();}
-    float y() {return cd_.y();}
-    float area() {return cd_.area();}
-    float area_d() {return area_d_;}
+    double x() {return cd_.x();}
+    double y() {return cd_.y();}
+    double area()  {return cd_.area();}
+    double area_d() const {return area_d_;}
     bool ok()
     {
         ros::spinOnce();
@@ -122,9 +122,9 @@ public:
 
     // internal modeling
     // Direct Kinematic Model   // aka wrist -> fixed fMw
-    int fMw(const vpColVector &_q, vpHomogeneousMatrix &_M);
+    int fMw(const vpColVector &_q, vpHomogeneousMatrix &_M) const;
     // Classical Jacobian of wrist frame
-    int fJw(const vpColVector &_q, vpMatrix &_J);
+    int fJw(const vpColVector &_q, vpMatrix &_J) const;
 
     // ROS functions
     void readJointStates(const sensor_msgs::JointState::ConstPtr& msg);

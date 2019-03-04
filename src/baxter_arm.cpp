@@ -186,8 +186,8 @@ BaxterArm::BaxterArm(int argc, char** argv, string group, bool _sim, std::string
 
     // display image
     cv::namedWindow("Baxter");
-    cv::createTrackbar( "lambda", "Baxter", &lambda_, 50);
-    cv::setTrackbarPos("lambda", "Baxter", 1);
+    cv::createTrackbar( "10.lambda", "Baxter", &lambda_, 50);
+    cv::setTrackbarPos("10.lambda", "Baxter", 1);
 
     ros::spinOnce();
 }
@@ -318,7 +318,7 @@ void BaxterArm::setCameraVelocity(vpColVector _velocity)
 /**
  * @brief get Jacobian expressed in camera frame
  */
-int BaxterArm::cameraJacobian(const vpColVector &_q, vpMatrix &_cJc)
+int BaxterArm::cameraJacobian(const vpColVector &_q, vpMatrix &_cJc) const
 {
     fJw(_q, _cJc);             // in root frame fJw
 
@@ -335,7 +335,7 @@ int BaxterArm::cameraJacobian(const vpColVector &_q, vpMatrix &_cJc)
 /**
  * @brief calcul modele geometrique direct
  */
-int BaxterArm::fMw(const vpColVector &_q, vpHomogeneousMatrix &_M)
+int BaxterArm::fMw(const vpColVector &_q, vpHomogeneousMatrix &_M) const
 {
     if(lefty_)
     {
@@ -455,7 +455,7 @@ bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMat
 /**
  * @brief compute Jacobian (base to wrist left_hand_camera)
  */
-int BaxterArm::fJw(const vpColVector &_q, vpMatrix &_J)
+int BaxterArm::fJw(const vpColVector &_q, vpMatrix &_J) const
 {
     if(lefty_)
     {
