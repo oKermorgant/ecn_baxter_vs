@@ -625,8 +625,7 @@ void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
     // process with color detector
     cv::Mat im_out;
 
-    im_ok = cd_.process(cv_bridge::toCvShare(_msg, "bgr8")->image, im_out)
-            || im_ok;
+    im_ok = cd_.process(_msg, im_out) || im_ok;
 
     // add setpoint
     cv::circle(im_out, cv::Point(cd_.cam.u0, cd_.cam.v0),

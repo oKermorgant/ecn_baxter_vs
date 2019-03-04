@@ -69,7 +69,7 @@ The considered robot is one arm of Baxter. A camera is placed at inside the end-
 
 The first goal is to actually compute a classical visual servoing. The features are defined as $\s = (x, y, a)$ where $(x,y)$ is the position of the center of gravity of the sphere and $a$ is its area in the image.
 
-The current features are accessed through \texttt{arm.x(), arm.x(), arm.x()} while the desired ones are set to 0 for $(x,y)$ and defined in \texttt{area\_d} for the area. 
+The current features are accessed through \texttt{arm.x(), arm.y(), arm.area()} while the desired ones are set to 0 for $(x,y)$ and accessed through \texttt{arm.area\_d()} for the area. 
 The error vector \texttt{e} has to be defined from the current and desired features.
 
 Similarly, the interaction matrix of $\s$ should be defined in \texttt{L}. The feature Jacobian, that expresses the time-variation of $\s$ with regards to $\dot \q$ should then be computed
