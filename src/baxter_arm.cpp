@@ -6,8 +6,10 @@
 
 using namespace std;
 
-BaxterArm::BaxterArm(int argc, char** argv, string group, bool _sim, std::string _side) : sim_(_sim)
+BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : sim_(_sim)
 {
+  const std::string group(getenv("USER"));
+
   ros::init(argc, argv, group + "_control");
 
   nh_ = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle());
@@ -151,7 +153,7 @@ BaxterArm::BaxterArm(int argc, char** argv, string group, bool _sim, std::string
   }
   else
   {
-    token = std::unique_ptr<ecn::TokenHandle>(new ecn::TokenHandle(group));
+    token = std::unique_ptr<ecn::TokenHandle>(new ecn::TokenHandle);
 
     // desired area in this case
     area_d_ = 0.03;
@@ -193,7 +195,6 @@ BaxterArm::BaxterArm(int argc, char** argv, string group, bool _sim, std::string
 
   cv::createTrackbar( "rho percent", "Baxter", &rho_, 50);
   cv::setTrackbarPos("rho percent", "Baxter", 10);
-
 
   ros::spinOnce();
 }

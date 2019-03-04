@@ -18,7 +18,7 @@ class BaxterArm
 {
 public:
 
-  BaxterArm(int argc, char** argv, std::string group = "display", bool _sim = true, std::string _side = "right");
+  BaxterArm(int argc, char** argv, bool _sim = true, std::string _side = "right");
 
   // joint space I/O
   vpColVector jointPosition() {return q_;}

@@ -9,11 +9,8 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    // update your group name to work on the real Baxter
-    std::string group_name = "students";
-
-    BaxterArm arm(argc, argv, group_name);    // defaults to simulation with right arm
-    //BaxterArm arm(argc, argv, group_name, false, "left");   // real robot with left arm
+    BaxterArm arm(argc, argv);    // defaults to simulation with right arm
+    //BaxterArm arm(argc, argv, false, "left");   // real robot with left arm
 
 
     vpColVector q = arm.init();
