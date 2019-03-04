@@ -88,7 +88,7 @@ A safe interval $(\q^{s-}, \q^{s+})$ has to be defined with a margin $\rho\in]0.
 	\q^{s+} = & \q^{+} - \rho(\q^+ - \q^-) \\
 	\q^{s-} = & \q^{-} + \rho(\q^+ - \q^-)
 \end{array}\right.
-\end{equation*}
+\end{equation*}Again, a $\rho$ value can be obtained by the corresponding slider if needed during tuning.\\
 
 Then, instead of minimizing $\norm{\J\dot \q + \lambda\e}^2$ we use the weighted sum:\\ $\displaystyle \dot \q = \argmin \norm{\J\dot \q + \lambda\e}^2 + \sum_{i=1}^n h_i\norm{\dot q_i + \lambda(q_i - q_i^*)}^2$ where $h_i(q_i)$ is a weighting function such as the one in \Fig{weight}.
 \begin{figure}\centering
