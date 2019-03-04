@@ -8,7 +8,7 @@ using namespace std;
 
 BaxterArm::BaxterArm(int argc, char** argv, string group, bool _sim, std::string _side) : sim_(_sim)
 {
-    ros::init(argc, argv, "control_node");
+    ros::init(argc, argv, group + "_control");
 
     nh_ = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle());
     it_ = std::unique_ptr<image_transport::ImageTransport>(new image_transport::ImageTransport(*nh_));
