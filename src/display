@@ -17,8 +17,8 @@ warnings.filterwarnings("ignore")
 
 sys.excepthook = lambda exctype,exc,traceback : 1
 
-DT = 10
 rate = 10
+DT = 10
 
 class Listener:
     def __init__(self, topic):
