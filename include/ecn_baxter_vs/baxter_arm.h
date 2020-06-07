@@ -89,7 +89,7 @@ public:
 
     ros::spinOnce();
     loop_->sleep();
-    return q_.euclideanNorm() != 0 && im_ok;
+    return q_.frobeniusNorm() != 0 && im_ok;
   }
 
 protected:

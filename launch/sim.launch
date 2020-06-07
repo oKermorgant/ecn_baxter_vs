@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-    <include file="$(find vrep_ros_launcher)/vrep.launch">
+    <include file="$(find coppeliasim_ros_launcher)/coppelia_sim.launch">
         <arg name="scene" value="$(find ecn_baxter_vs)/scene/baxter.ttt"/>
     </include>
     

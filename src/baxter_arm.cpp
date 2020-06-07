@@ -230,7 +230,7 @@ void BaxterArm::setJointPosition(vpColVector _q)
 {
   ros::Rate loop(10);
   // wait to receive joint states
-  //  while(q_.euclideanNorm() != 0)
+  //  while(q_.frobeniusNorm() != 0)
   {
     //  ros::spinOnce();
     //  loop.sleep();
@@ -244,9 +244,9 @@ void BaxterArm::setJointPosition(vpColVector _q)
 
     int it = 0;
     double lambda = 2;
-    while((_q - q_).euclideanNorm() > 1e-3 && it < 1000 && ros::ok())
+    while((_q - q_).frobeniusNorm() > 1e-3 && it < 1000 && ros::ok())
     {
-      if ((_q - q_).euclideanNorm() < 1e-2)
+      if ((_q - q_).frobeniusNorm() < 1e-2)
         lambda = 5;
       it++;
       setJointVelocity(-lambda * (q_ - _q));
@@ -260,11 +260,11 @@ void BaxterArm::setJointPosition(vpColVector _q)
       cmd_msg_real.command[i] = _q[i];
     cmd_msg_real.mode = 1;
     int it = 0;
-    while((_q - q_).euclideanNorm() > 5e-3 && it < 1000 && ros::ok())
+    while((_q - q_).frobeniusNorm() > 5e-3 && it < 1000 && ros::ok())
     {
       it++;
       cmd_pub_.publish(cmd_msg_real);
-      std::cout << "Reaching desired position, error=" << (_q - q_).euclideanNorm() << std::endl;
+      std::cout << "Reaching desired position, error=" << (_q - q_).frobeniusNorm() << std::endl;
       ros::spinOnce();
       loop.sleep();
     }
@@ -451,7 +451,7 @@ bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMat
         if(_q[i] < q_max_[i] && _q[i] > q_min_[i])      // check joint limits valid
           _q[i] += dq[i];
 
-      e = ((vpColVector) pose_err).euclideanNorm();
+      e = ((vpColVector) pose_err).frobeniusNorm();
       iter++;
     }
     if(e < eMin)
@@ -615,7 +615,7 @@ void BaxterArm::plot(vpColVector err)
 
 void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
 {
-  const bool init = (q_.euclideanNorm() == 0);
+  const bool init = (q_.frobeniusNorm() == 0);
 
   for(unsigned int i=0;i<_msg->name.size();++i)
   {
