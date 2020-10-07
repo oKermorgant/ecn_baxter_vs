@@ -2,7 +2,7 @@
 #include <ecn_baxter_vs/baxter_arm.h>
 #include <visp/vpSubMatrix.h>
 #include <visp/vpSubColVector.h>
-#include <ecn_common/vpQuadProg.h>
+#include <visp/vpQuadProg.h>
 #include <ecn_common/visp_utils.h>
 
 using namespace std;
