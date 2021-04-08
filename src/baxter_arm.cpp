@@ -140,13 +140,13 @@ BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : sim_
   if(sim_)
   {
     // publisher to joint command
-    cmd_pub_ = nh_->advertise<sensor_msgs::JointState>("/vrep_ros_interface/joint_command", 100);
+    cmd_pub_ = nh_->advertise<sensor_msgs::JointState>("/sim_ros_interface/joint_command", 100);
 
     // subscriber to joint states
-    joint_subscriber_ = nh_->subscribe("/vrep_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
+    joint_subscriber_ = nh_->subscribe("/sim_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
 
     // set image to None, subscriber instantiated in the image setter
-    image_subscriber_ = it_->subscribe("/vrep_ros_interface/camera/"+_side, 1, &BaxterArm::readImage, this);
+    image_subscriber_ = it_->subscribe("/sim_ros_interface/camera/"+_side, 1, &BaxterArm::readImage, this);
 
     // camera parameters
     cd_.setCamera(640, 480, 90);
@@ -186,7 +186,6 @@ BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : sim_
   ss << "rosrun ecn_baxter_vs display ";
   ss << "__ns:=" << group << " &";
   system(ss.str().c_str());
-
 
   // display image
   cv::namedWindow("Baxter");
