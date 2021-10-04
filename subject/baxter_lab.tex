@@ -13,7 +13,7 @@
 
 The goal is this lab is to control one arm of the Baxter robot, first in simulation then on the real robot. 
 
-The robot is simulated with V-REP\footnote{Virtual robot experimentation platform, http://www.coppeliarobotics.com/}.
+The robot is simulated with CoppeliaSim\footnote{http://www.coppeliarobotics.com/}.
 In the simulation is placed a green sphere. The goal is to move the arm so that the sphere is centered and at a given distance from the camera.
 The robot control will be performed in C++ and will rely on:
 
@@ -43,7 +43,7 @@ Remember to call {\tt{catkin build}} after downloading the packages in your ROS 
 \subsection{Structure of the \texttt{ecn\_baxter\_vs} package}
 
 The only file to be modified is \texttt{main.cpp}, which is the main file for the C++ program. \\
-The simulation can be launched with: \texttt{roslaunch ecn\_baxter\_vs vrep.launch}.
+The simulation can be launched with: \texttt{roslaunch ecn\_baxter\_vs sim.launch}.
 
 When both the simulation and the control program run, the ROS graph looks like this:
 
