@@ -1,13 +1,13 @@
 \documentclass{ecnreport}
 
 \stud{M2 CORO-IMARO}
-\topic{Sensor-based control}
+\topic{Task-based control}
 
 \begin{document}
 
-\inserttitle{Sensor-based control lab}
+\inserttitle{Task-based control lab}
 
-\insertsubtitle{Labs 2: Robot arm control}
+\insertsubtitle{Lab 2: Robot arm control}
 
 \section{Content of this lab}
 
@@ -77,6 +77,16 @@ from \texttt{L} and \texttt{arm.cameraJacobian()}.
 
 The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e$. Of course this control law does not take into account the joint limits. \\The gain $\lambda$ should be equal to \texttt{arm.lambda()}, in order to be tuned online from the Baxter image window slider.
 
+\subsection{Avoiding useless rotations}
+
+The 3 current features allow any rotation around the Z-axis of the camera as it does not change the object in the image. In order to stabilize the system we add a constraint that is having the X-axis of the camera orthogonal to the Z-axis of the base frame.
+
+The rotation matrix $\Pass{b}{\R}{c}$ can be obtained with:
+\begin{cppcode}
+ const auto bRc = arm.cameraPose().getRotationMatrix();
+\end{cppcode}
+Knowing that $\Pass{b}{\dot\R}{c} = \Pass{b}{\R}{c}\skew{\boldsymbol\omega_c}$, express the interaction matrix of this new feature and add it to the control.
+
 \subsection{Visual servoing with joint limits}
 
 We will use the augmented Jacobian framework\footnote{O. Kermorgant, F. Chaumette. Dealing with constraints in sensor-based robot control. In IEEE Trans. on Robotics, Feb 2014}.
@@ -88,16 +98,16 @@ A safe interval $(\q^{s-}, \q^{s+})$ has to be defined with a margin $\rho\in]0.
 	\q^{s+} = & \q^{+} - \rho(\q^+ - \q^-) \\
 	\q^{s-} = & \q^{-} + \rho(\q^+ - \q^-)
 \end{array}\right.
-\end{equation*}Again, a $\rho$ value can be obtained by the corresponding slider if needed during tuning.\\
+\end{equation*}$\rho$ can be tuned online through the slider, its value is available with \texttt{arm.rho()}.\\
 
-Then, instead of minimizing $\norm{\J\dot \q + \lambda\e}^2$ we use the weighted sum:\\ $\displaystyle \dot \q = \argmin \norm{\J\dot \q + \lambda\e}^2 + \sum_{i=1}^n h_i\norm{\dot q_i + \lambda(q_i - q_i^*)}^2$ where $h_i(q_i)$ is a weighting function such as the one in \Fig{weight}.
-\begin{figure}\centering
+The classical weighting function is depicted in \Fig{weight}. It is available in the code, as detailed in Appendix \ref{util}.
+\begin{figure}[h]\centering
 	\includegraphics[width=.7\linewidth]{constraint_0inf}
 	\caption{Typical weighting function from $(s^-, s^{s-}, s^{s+}, s^+)$}
 	\label{weight}		
 \end{figure}
 
-This can be written in matrix form: 
+The control then yields: 
 \begin{center}
 	$\dot \q = \arg\min \norm{\H\tilde\J\dot \q + \lambda\H\tilde\e}^2$ \\
  where: $\H = \left[\begin{array}{cc}\I_3 & 0 \\ 0 & \diag{h_i}\end{array}\right]$,
@@ -108,10 +118,10 @@ The solution to the minimization can be explicitly written as $\dot \q = -\lambd
 
 \subsection{Visual servoing and joint control with joint limits }
 
-If we use the above formulation then the robot avoids its joint limits but the control law may be discontinuous. Indeed, $(\H\tilde\J)$ is a $10\times 7$ matrix whose rank may vary from 3 (only visual features active) to 7 (at least 4 joints close to their limits). A solution is to set arbitrary values for 4 joints. \\
+If we use the above formulation then the robot avoids its joint limits but the control law may be discontinuous. Indeed, $(\H\tilde\J)$ is a $10\times 7$ matrix whose rank may vary from 4 (all joints in their safe zone) to 7 (at least 3 joints close to their limits). A solution is to set arbitrary values for 3 joints. \\
 
-A good choice is to use the default value (output of \texttt{arm.init()}) as desired value for joints $4\hdots7$ and keep their weight equal to 1. 
-The joints $1\hdots 3$ will be used for the visual servoing while avoiding their limits.
+A good choice is to use the default value (output of \texttt{arm.init()}) as desired value for joints $3\hdots7$ and keep their weight equal to 1. 
+The joints $1\hdots 4$ will be used for the visual servoing while avoiding their limits.
 
 \subsection{Use on the real robot}
 
@@ -169,6 +179,7 @@ These class can be declared and used as follows:
 % \end{itemize}
 
 \subsection{Utility functions}
+\label{util}
 
 In addition to the given classes and solvers, several utility function are defined:
 \begin{itemize}
@@ -181,10 +192,8 @@ In addition to the given classes and solvers, several utility function are defin
               0 & \text{if } s < s_{\text{act}} \\
               \displaystyle \frac{s-s_{\text{act}}}{s_{\max}-s} & \text{otherwise}
              \end{array}\right.
- \end{equation*}This function is designed for upper bounds (ie. assumes that $s_{\text{act}} < s_{\text{max}}$), but can be easily used for lower bounds by sending the opposite values formulation
- $(-s,-s_{\text{act}}, -s_{\max})$.
-\item \texttt{double ecn::weightBothSigns(s, s\_act, s\_max)}: Returns the weighting function considering both lower and upper bounds, assuming opposite bounds (
-which is true for the wheel velocities and the visibility).
+ \end{equation*}This formulation corresponds to upper bounds (ie. $s_{\text{act}} < s_{\text{max}}$).
+ For lower bounds (ie. $s_{\text{act}} > s_{\text{max}}$) it simply returns $h(-s,-s_{\text{act}}, -s_{\max})$.
 \end{itemize}
 
 

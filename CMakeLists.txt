@@ -19,21 +19,13 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)
 find_package(VISP REQUIRED)
+find_package(log2plot REQUIRED)
 
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if you package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ecn_baxter_vs
   CATKIN_DEPENDS baxter_core_msgs roscpp sensor_msgs std_msgs image_transport ecn_common
-  DEPENDS VISP OpenCV
+  DEPENDS VISP OpenCV log2plot
 )
 
 ###########
@@ -47,10 +39,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${VISP_INCLUDE_DIRS}
+  ${LOG2PLOT_INCLUDE_DIRS}
 )
 
 add_library(ecn_baxter_vs include/ecn_baxter_vs/baxter_arm.h src/baxter_arm.cpp)
-target_link_libraries(ecn_baxter_vs ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${VISP_LIBRARIES})
+target_link_libraries(ecn_baxter_vs ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${VISP_LIBRARIES} ${LOG2PLOT_LIBRARIES})
 
 add_executable(baxter_vs main.cpp)
 target_link_libraries(baxter_vs ecn_baxter_vs)

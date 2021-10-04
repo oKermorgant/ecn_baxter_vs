@@ -11,6 +11,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <ecn_common/color_detector.h>
 #include <ecn_common/token_handle.h>
+#include <log2plot/log_plotter.h>
 #include <ctime>
 #include <memory>
 
@@ -108,7 +109,9 @@ protected:
   int rho_;
 
   // online feedback
-  ros::Publisher joint_pub_, vs_pub_;
+  std::array<double, 9> q_plot;
+  std::array<double, 3> vs_plot;
+  log2plot::LogPlotter logger;
 
   vpColVector q_;
   vpHomogeneousMatrix wMc_, bMf_;

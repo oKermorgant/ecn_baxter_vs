@@ -6,7 +6,7 @@
 
 using namespace std;
 
-BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : sim_(_sim)
+BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : logger("/tmp/baxter_"), sim_(_sim)
 {
   const std::string group(getenv("USER"));
 
@@ -179,13 +179,11 @@ BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : sim_
 
 
   // visualization
-  joint_pub_ = nh_->advertise<sensor_msgs::JointState>("/" + group + "/joints", 100);
-  vs_pub_ = nh_->advertise<sensor_msgs::JointState>("/" + group + "/vs", 100);
-  // call display
-  std::stringstream ss;
-  ss << "rosrun ecn_baxter_vs display ";
-  ss << "__ns:=" << group << " &";
-  system(ss.str().c_str());
+  q_plot[7] = -1;
+  q_plot[8] = 1;
+  logger.save(q_plot, "q", "[q_1,q_2,q_3,q_4,q_5,q_6,q_7,q^-,q^+]", "Normalized joints",false);
+  logger.setLineType("[C0,C1,C2,C3,C4,C5,C6,k,k]");
+  logger.save(vs_plot, "vs", "[x-x^*, y-y^*, a-a^*]", "VS error", false);
 
   // display image
   cv::namedWindow("Baxter");
@@ -589,26 +587,15 @@ int BaxterArm::fJw(const vpColVector &_q, vpMatrix &_J) const
   return 0;
 }
 
-
 void BaxterArm::plot(vpColVector err)
 {
-  sensor_msgs::JointState msg;
-  // plot normalized joint positions
-  msg.name = cmd_msg_real.names;
-  msg.position.resize(msg.name.size());
-  msg.header.frame_id = "Joint positions";
-  for(int i = 0; i< msg.name.size(); ++i)
-    msg.position[i] = (q_[i] - q_min_[i])/(q_max_[i] - q_min_[i]);
-  joint_pub_.publish(msg);
+  for(int i = 0; i < 3; ++i)
+    vs_plot[i] = err[i];
 
-  // plot VS error (x, y, a)
-  msg.name = {"x", "y", "area"};
-  msg.header.frame_id = "VS error";
-  if(err.getRows() == 2)
-    msg.position = {err[0], err[1], 0};
-  else
-    msg.position = {err[0], err[1], err[2]};
-  vs_pub_.publish(msg);
+  for(int i = 0; i< 7; ++i)
+    q_plot[i] = -1 + 2*(q_[i] - q_min_[i])/(q_max_[i] - q_min_[i]);
+
+  logger.update();
 }
 
 
