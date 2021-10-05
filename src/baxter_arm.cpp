@@ -6,9 +6,12 @@
 
 using namespace std;
 
-BaxterArm::BaxterArm(int argc, char** argv, bool _sim, std::string _side) : logger("/tmp/baxter_"), sim_(_sim)
+BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/baxter_")
 {
   const std::string group(getenv("USER"));
+  const string rosmaster(getenv("ROS_MASTER_URI"));
+
+  sim_ = rosmaster.find("baxter") == rosmaster.npos;
 
   ros::init(argc, argv, group + "_control");
 

@@ -49,12 +49,12 @@ When both the simulation and the control program run, the ROS graph looks like t
 
 \begin{figure}[h!]\centering
  \includegraphics[width=.6\linewidth]{rosgraph}
- \caption{ROS graph showing nodes (ellipses) and communication topics (rectangles)}
+ \caption{ROS graph showing nodes and communication topics}
  \label{fig:rosgraph}
 \end{figure}
 
 We can see that the simulator sends the joint states and the camera image to the control node. In return, the control node sends the joint setpoints
-to the simulator. It also sends data to be displayed by the \texttt{display} node.\\
+to the simulator. The control node is prefixed with the user's name in order to avoid collisions when controlling the real robot.\\
 
 
 \subsection{The Baxter robot (arm)}
@@ -125,9 +125,16 @@ The joints $1\hdots 4$ will be used for the visual servoing while avoiding their
 
 \subsection{Use on the real robot}
 
-If the simulation is working, the only thing to modify to run on the real robot is the \texttt{Baxter arm} declaration. You should indicate whether you want to control the left or right arm. The visual detector is designed to detect green objects on the right camera and red objects on the left one. An additional image processing window will open in order to tune the Hue and Saturation thresholds, that may depend on the light conditions.\\
+If the simulation is working, you can control the real robot simply by setting the correct ROSMASTER.
+\\In order to be connected to Baxter, you have to be in the \texttt{ros} workspace and first run \texttt{source baxter.sh}. Then just run your node from this terminal:
+\begin{bashcode}
+ rosrun ecn_baxter_vs baxter_vs
+\end{bashcode}
 
-In order to be connected to Baxter, you have to be in the \texttt{ros} workspace and first run \texttt{source baxter.sh}. 
+
+the only thing to modify to run on the real robot is the \texttt{Baxter arm} declaration. You should indicate whether you want to control the left or right arm. The visual detector is designed to detect green objects on the right camera and red objects on the left one. An additional image processing window will open in order to tune the Hue and Saturation thresholds, that may depend on the light conditions.\\
+
+
 
 \appendix
 
