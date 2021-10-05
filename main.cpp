@@ -8,9 +8,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    BaxterArm arm(argc, argv);    // defaults to simulation with right arm
-    //BaxterArm arm(argc, argv, false, "left");   // real robot with left arm
-
+    BaxterArm arm(argc, argv, "right");    // defaults to right arm
 
     vpColVector q = arm.init();
 

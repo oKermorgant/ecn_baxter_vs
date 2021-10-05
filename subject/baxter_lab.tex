@@ -110,7 +110,7 @@ The classical weighting function is depicted in \Fig{weight}. It is available in
 The control then yields: 
 \begin{center}
 	$\dot \q = \arg\min \norm{\H\tilde\J\dot \q + \lambda\H\tilde\e}^2$ \\
- where: $\H = \left[\begin{array}{cc}\I_3 & 0 \\ 0 & \diag{h_i}\end{array}\right]$,
+ where: $\H = \left[\begin{array}{cc}\I_4 & 0 \\ 0 & \diag{h_i}\end{array}\right]$,
  $\tilde\J = \left[\begin{array}{c}\J \\ \I_n \end{array}\right]$ and
   $\tilde\e = \left[\begin{array}{c}\e \\ \q - \q^* \end{array}\right]$
 \end{center}
@@ -118,21 +118,23 @@ The solution to the minimization can be explicitly written as $\dot \q = -\lambd
 
 \subsection{Visual servoing and joint control with joint limits }
 
-If we use the above formulation then the robot avoids its joint limits but the control law may be discontinuous. Indeed, $(\H\tilde\J)$ is a $10\times 7$ matrix whose rank may vary from 4 (all joints in their safe zone) to 7 (at least 3 joints close to their limits). A solution is to set arbitrary values for 3 joints. \\
+If we use the above formulation then the robot avoids its joint limits but the control law may be discontinuous. Indeed, $(\H\tilde\J)$ is a $11\times 7$ matrix whose rank may vary from 4 (all joints in their safe zone) to 7 (at least 3 joints close to their limits). A solution is to set arbitrary values for 3 joints. \\
 
 A good choice is to use the default value (output of \texttt{arm.init()}) as desired value for joints $3\hdots7$ and keep their weight equal to 1. 
 The joints $1\hdots 4$ will be used for the visual servoing while avoiding their limits.
 
 \subsection{Use on the real robot}
 
-If the simulation is working, you can control the real robot simply by setting the correct ROSMASTER.
-\\In order to be connected to Baxter, you have to be in the \texttt{ros} workspace and first run \texttt{source baxter.sh}. Then just run your node from this terminal:
-\begin{bashcode}
+If the simulation is working fine, you can control the real robot simply by connecting to the rosmaster of the robot. This is done in a terminal with:
+\begin{bashcodelarge}
+ source ~/ros/baxter.sh
+\end{bashcodelarge}
+Then just run your node from the same terminal:
+\begin{bashcodelarge}
  rosrun ecn_baxter_vs baxter_vs
-\end{bashcode}
+\end{bashcodelarge}
 
-
-the only thing to modify to run on the real robot is the \texttt{Baxter arm} declaration. You should indicate whether you want to control the left or right arm. The visual detector is designed to detect green objects on the right camera and red objects on the left one. An additional image processing window will open in order to tune the Hue and Saturation thresholds, that may depend on the light conditions.\\
+You can also indicate whether you want to control the left or right arm. The visual detector is designed to detect green objects on the right camera and red objects on the left one. An additional image processing window will open in order to tune the Hue and Saturation thresholds, that may depend on the light conditions of the room.\\
 
 
 
