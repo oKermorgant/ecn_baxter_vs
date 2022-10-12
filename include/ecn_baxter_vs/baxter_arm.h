@@ -41,24 +41,7 @@ public:
   vpHomogeneousMatrix cameraPose();   // aka camera -> base bMc
 
   // Jacobian in camera frame
-  int cameraJacobian(const vpColVector &_q, vpMatrix &_cJc) const ;
-  vpMatrix cameraJacobian(std::vector<int> joints = {}) const
-  {
-    vpMatrix J(6,7);
-    cameraJacobian(q_, J);
-    if(joints.size() != 0)
-    {
-      for(int j = 0; j < 7; ++j)
-      {
-        if(std::find(joints.begin(), joints.end(), j) == joints.end())
-        {
-          for(int i = 0; i < 6; ++i)
-            J[i][j] = 0;
-        }
-      }
-    }
-    return J;
-  }
+  vpMatrix cameraJacobian(const vpColVector &_q) const ;
 
   // Inverse Kinematics in camera frame
   // returns True if solution found
@@ -87,9 +70,20 @@ public:
     if(!sim_)
       token->update();
 
+    if(!im_ok)
+    {
+      ros::Rate wait_image(50);
+      while(!im_ok)
+      {
+        ros::spinOnce();
+        wait_image.sleep();
+      }
+    }
     ros::spinOnce();
     loop_->sleep();
-    return q_.frobeniusNorm() != 0 && im_ok;
+
+
+    return ros::ok();
   }
 
 protected:

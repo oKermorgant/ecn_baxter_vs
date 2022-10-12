@@ -324,8 +324,7 @@ vpHomogeneousMatrix BaxterArm::cameraPose()
 
 void BaxterArm::setCameraVelocity(vpColVector _velocity)
 {
-  vpMatrix cJc(6,7);
-  cameraJacobian(q_, cJc);                             // Jacobian expressed in camera frame
+  auto cJc = cameraJacobian(q_);                       // Jacobian expressed in camera frame
   setJointVelocity(cJc.pseudoInverse() * _velocity);   // to joint velocity
 }
 
@@ -333,9 +332,10 @@ void BaxterArm::setCameraVelocity(vpColVector _velocity)
 /**
  * @brief get Jacobian expressed in camera frame
  */
-int BaxterArm::cameraJacobian(const vpColVector &_q, vpMatrix &_cJc) const
+vpMatrix BaxterArm::cameraJacobian(const vpColVector &_q) const
 {
-  fJw(_q, _cJc);             // in root frame fJw
+  vpMatrix J;
+  fJw(_q, J);             // in root frame fJw
 
   // build wRRf, vector transform between Ff and Fw
   vpHomogeneousMatrix M;
@@ -343,8 +343,7 @@ int BaxterArm::cameraJacobian(const vpColVector &_q, vpMatrix &_cJc) const
   vpRotationMatrix wRf;
   M.inverse().extract(wRf);
   vpVelocityTwistMatrix wRRf(vpTranslationVector(), wRf);
-  _cJc = cWw_ * wRRf * _cJc; // cJc = cWw * wRRf * fJw
-  return 0;
+  return cWw_ * wRRf * J; // cJc = cWw * wRRf * fJw
 }
 
 /**
@@ -472,6 +471,7 @@ bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMat
  */
 int BaxterArm::fJw(const vpColVector &_q, vpMatrix &_J) const
 {
+  _J.resize(6,7);
   if(lefty_)
   {
     const double c1 = cos(_q[0]);
