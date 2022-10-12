@@ -21,6 +21,8 @@ find_package(OpenCV REQUIRED)
 find_package(VISP REQUIRED)
 find_package(log2plot REQUIRED)
 
+set(CMAKE_CXX_STANDARD 17)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ecn_baxter_vs

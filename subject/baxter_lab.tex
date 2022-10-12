@@ -29,21 +29,21 @@ ROS environment should already be set up in the computers.
 In order to use an IDE like Qt Creator, you should open a terminal and launch the IDE from the command line.\\ A tutorial on how to use Qt Creator (or any other IDE 
 able to load CMake files) can be found on my webpage: \url{http://pagesperso.ls2n.fr/~kermorgant-o/coding\%20tools.html#config}.\\
 
-This lab is available on GitHub as a ROS package called \texttt{ecn\_sensorbased}. 
-On the P-ro computers, it can be downloaded and compiled using \texttt{rosdl ecn\_baxter\_vs}\\
+This lab is available on GitHub as a ROS package called \okttt{ecn_sensorbased}. 
+On the P-ro computers, it can be downloaded and compiled using \okttt{rosdl ecn_baxter_vs}\\
 
-If you want to do it manually, you should first go in the \texttt{ros/src} directory. The package can then be downloaded through git:
+If you want to do it manually, you should first go in the \okttt{ros/src} directory. The package can then be downloaded through git:
 \begin{center}\cppstyle
 \begin{lstlisting}
  git clone https://github.com/oKermorgant/ecn_baxter_vs.git
 \end{lstlisting}
 \end{center}
-Remember to call {\tt{catkin build}} after downloading the packages in your ROS workspace, and before trying to load it in the IDE.
+Remember to call {\okttt{catkin build}} after downloading the packages in your ROS workspace, and before trying to load it in the IDE.
 
-\subsection{Structure of the \texttt{ecn\_baxter\_vs} package}
+\subsection{Structure of the \okttt{ecn_baxter_vs} package}
 
-The only file to be modified is \texttt{main.cpp}, which is the main file for the C++ program. \\
-The simulation can be launched with: \texttt{roslaunch ecn\_baxter\_vs sim.launch}.
+The only file to be modified is \okttt{main.cpp}, which is the main file for the C++ program. \\
+The simulation can be launched with: \okttt{roslaunch ecn_baxter_vs sim.launch}.
 
 When both the simulation and the control program run, the ROS graph looks like this:
 
@@ -69,13 +69,13 @@ The considered robot is one arm of Baxter. A camera is placed at inside the end-
 
 The first goal is to actually compute a classical visual servoing. The features are defined as $\s = (x, y, a)$ where $(x,y)$ is the position of the center of gravity of the sphere and $a$ is its area in the image.
 
-The current features are accessed through \texttt{arm.x(), arm.y(), arm.area()} while the desired ones are set to 0 for $(x,y)$ and accessed through \texttt{arm.area\_d()} for the area. 
-The error vector \texttt{e} has to be defined from the current and desired features.
+The current features are accessed through \okttt{arm.x(), arm.y(), arm.area()} while the desired ones are set to 0 for $(x,y)$ and accessed through \okttt{arm.area_d()} for the area. 
+The error vector \okttt{e} has to be defined from the current and desired features.
 
-Similarly, the interaction matrix of $\s$ should be defined in \texttt{L}. The feature Jacobian, that expresses the time-variation of $\s$ with regards to $\dot \q$ should then be computed
-from \texttt{L} and \texttt{arm.cameraJacobian()}.
+Similarly, the interaction matrix of $\s$ should be defined in \okttt{L}. The feature Jacobian, that expresses the time-variation of $\s$ with regards to $\dot \q$ should then be computed
+from \okttt{L} and \okttt{arm.cameraJacobian()}.
 
-The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e$. Of course this control law does not take into account the joint limits. \\The gain $\lambda$ should be equal to \texttt{arm.lambda()}, in order to be tuned online from the Baxter image window slider.
+The desired joint velocities can then be computed with $\dot \q = -\lambda\J^+\e$. Of course this control law does not take into account the joint limits. \\The gain $\lambda$ should be equal to \okttt{arm.lambda()}, in order to be tuned online from the Baxter image window slider.
 
 \subsection{Avoiding useless rotations}
 
@@ -98,7 +98,7 @@ A safe interval $(\q^{s-}, \q^{s+})$ has to be defined with a margin $\rho\in]0.
 	\q^{s+} = & \q^{+} - \rho(\q^+ - \q^-) \\
 	\q^{s-} = & \q^{-} + \rho(\q^+ - \q^-)
 \end{array}\right.
-\end{equation*}$\rho$ can be tuned online through the slider, its value is available with \texttt{arm.rho()}.\\
+\end{equation*}$\rho$ can be tuned online through the slider, its value is available with \okttt{arm.rho()}.\\
 
 The classical weighting function is depicted in \Fig{weight}. It is available in the code, as detailed in Appendix \ref{util}.
 \begin{figure}[h]\centering
@@ -120,15 +120,15 @@ The solution to the minimization can be explicitly written as $\dot \q = -\lambd
 
 If we use the above formulation then the robot avoids its joint limits but the control law may be discontinuous. Indeed, $(\H\tilde\J)$ is a $11\times 7$ matrix whose rank may vary from 4 (all joints in their safe zone) to 7 (at least 3 joints close to their limits). A solution is to set arbitrary values for 3 joints. \\
 
-A good choice is to use the default value (output of \texttt{arm.init()}) as desired value for joints $3\hdots7$ and keep their weight equal to 1. 
+A good choice is to use the default value (output of \okttt{arm.init()}) as desired value for joints $3\hdots7$ and keep their weight equal to 1. 
 The joints $1\hdots 4$ will be used for the visual servoing while avoiding their limits.
 
 \subsection{Use on the real robot}
 
 If the simulation is working fine, you can control the real robot simply by connecting to the rosmaster of the robot. This is done in a terminal with:
 \begin{bashcodelarge}
- source ~/ros/baxter.sh
-\end{bashcodelarge}
+ ros_baxter
+\end{bashcodelarge}A \okttt{[baxter]} text should appear in the prompt.
 Then just run your node from the same terminal:
 \begin{bashcodelarge}
  rosrun ecn_baxter_vs baxter_vs
@@ -148,9 +148,9 @@ This library includes many tools for linear algebra, especially for 3D transform
 The documentation is found here: \url{http://visp-doc.inria.fr/doxygen/visp-daily/classes.html}.\\
 The main classes from ViSP (at least in this lab) are:
 \begin{itemize}
-\item \texttt{vpFeaturePoint} (variable \texttt{p}) represents a Cartesian 2D point as feature. It can be updated with \texttt{p.set\_xyZ(x,y, 1);}. The main interest is that the corresponding $2\times 6$ interaction matrix can be retrieved by \texttt{p.interaction();}
-\item \texttt{vpMatrix} represents a classical matrix, can then be transposed, inversed (or pseudo-inversed), multiplied with a vector, etc.
-\item \texttt{vpColVector} is a column vector with classical mathematical properties.
+\item \okttt{vpFeaturePoint} (variable \okttt{p}) represents a Cartesian 2D point as feature. It can be updated with \okttt{p.set_xyZ(x,y, 1);}. The main interest is that the corresponding $2\times 6$ interaction matrix can be retrieved by \okttt{p.interaction();}
+\item \okttt{vpMatrix} represents a classical matrix, can then be transposed, inversed (or pseudo-inversed), multiplied with a vector, etc.
+\item \okttt{vpColVector} is a column vector with classical mathematical properties.
 \end{itemize}
 These class can be declared and used as follows:
 \begin{center}\cppstyle
@@ -168,23 +168,23 @@ These class can be declared and used as follows:
 %The Baxter class hides all the ROS communication aspects in order to have a higher-level access. As this is not a lab on robot modeling, all Jacobians are already 
 %available - even if it could be a nice exercice to compute the camera Jacobian. 
 %
-%The main methods of the \texttt{Baxter} class can be seen in the \texttt{baxter\_arm.h} file:
+%The main methods of the \okttt{Baxter} class can be seen in the \okttt{baxter_arm.h} file:
 %\begin{itemize}
 % \item Getters for robot model or measurements:
 % \begin{itemize}
-%  \item \texttt{double robot.radius()}, \texttt{robot.base()}, \texttt{robot.wmax()} : kinematic model.
-%  \item \texttt{void robot.getImagePoint(vpColVector \&)}: get the measured center of gravity of the sphere in the image, in normalized coordinates.
-%  \item \texttt{vpColVector robot.getCamLimits()}: get the upper bounds for $(x,y)$. Lower bounds are the opposite.
-%  \item \texttt{vpMatrix robot.getCamJacobian()}: get the Jacobian between the camera velocity screw in its own frame and the robot command $\dot \q$. This Jacobian is to be multiplied
+%  \item \okttt{double robot.radius()}, \okttt{robot.base()}, \okttt{robot.wmax()} : kinematic model.
+%  \item \okttt{void robot.getImagePoint(vpColVector \&)}: get the measured center of gravity of the sphere in the image, in normalized coordinates.
+%  \item \okttt{vpColVector robot.getCamLimits()}: get the upper bounds for $(x,y)$. Lower bounds are the opposite.
+%  \item \okttt{vpMatrix robot.getCamJacobian()}: get the Jacobian between the camera velocity screw in its own frame and the robot command $\dot \q$. This Jacobian is to be multiplied
 %  by the interaction matrix of a point to get the actual Jacobian of the image coordinates with regards to the robot command.
 % \end{itemize}
-%\item \texttt{robot.setVelocity(vpColVector)}: send a $\dot \q$ velocity. Wheel velocity limits will be applied before actually sending it to the simulator.
+%\item \okttt{robot.setVelocity(vpColVector)}: send a $\dot \q$ velocity. Wheel velocity limits will be applied before actually sending it to the simulator.
 %\end{itemize}
 
 % 
 % \begin{itemize}
-%  \item \texttt{setVelocity(vpColVector)}: sends a $(v, \omega, \dot q_p, \dot q_t)$ velocity to the robot, wheels velocity limits will be ensured
-%  \item \texttt{getImagePoint(vpColVector \&)}: gives the current position (normalized coordinates) of the sphere in the image
+%  \item \okttt{setVelocity(vpColVector)}: sends a $(v, \omega, \dot q_p, \dot q_t)$ velocity to the robot, wheels velocity limits will be ensured
+%  \item \okttt{getImagePoint(vpColVector \&)}: gives the current position (normalized coordinates) of the sphere in the image
 % \end{itemize}
 
 \subsection{Utility functions}
@@ -192,10 +192,10 @@ These class can be declared and used as follows:
 
 In addition to the given classes and solvers, several utility function are defined:
 \begin{itemize}
- \item \texttt{void ecn::putAt(M, Ms, r, c)}: Writes matrix \texttt{Ms} inside matrix \texttt{M}, starting from given row and column.
- \item \texttt{void ecn::putAt(V, Vs, r)}: Writes column vector \texttt{Vs} inside vector \texttt{V}, starting from given row. These two functions do nothing but print an error
+ \item \okttt{void ecn::putAt(M, Ms, r, c)}: Writes matrix \okttt{Ms} inside matrix \okttt{M}, starting from given row and column.
+ \item \okttt{void ecn::putAt(V, Vs, r)}: Writes column vector \okttt{Vs} inside vector \okttt{V}, starting from given row. These two functions do nothing but print an error
  if the submatrix or vector does not fit in the main one.
- \item \texttt{double ecn::weight(s, s\_act, s\_max)}: Returns the weighting function defined during the lectures:
+ \item \okttt{double ecn::weight(s, s_act, s_max)}: Returns the weighting function defined during the lectures:
  \begin{equation*}
   h = \left\{\begin{array}{cl}
               0 & \text{if } s < s_{\text{act}} \\
