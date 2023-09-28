@@ -43,11 +43,11 @@ int main(int argc, char** argv)
 
     // update interaction matrix L
 
-    // compute feature Jacobian from L and cameraJacobian
-    const auto J = arm.cameraJacobian();
     // build H matrix (2nd section) using arm.rho()
     q = arm.jointPosition();
 
+    // compute feature Jacobian from L and cameraJacobian
+    const auto J = arm.cameraJacobian(q);
 
     // send this command to the robot
     arm.setJointVelocity(qdot);
