@@ -1,39 +1,47 @@
 #ifndef BAXTERARM_H
 #define BAXTERARM_H
 
-#include <ros/ros.h>
-#include <baxter_core_msgs/JointCommand.h>
-#include <sensor_msgs/JointState.h>
-#include <image_transport/image_transport.h>
+#include <rclcpp/node.hpp>
+#include <baxter_core_msgs/msg/joint_command.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <image_transport/image_transport.hpp>
 #include <visp/vpColVector.h>
 #include <visp/vpHomogeneousMatrix.h>
 #include <visp/vpVelocityTwistMatrix.h>
 #include <cv_bridge/cv_bridge.h>
-#include <ecn_common/color_detector.h>
-#include <ecn_common/token_handle.h>
+#include <ecn_baxter_vs/color_detector.h>
 #include <log2plot/log_plotter.h>
 #include <ctime>
 #include <memory>
 
 class BaxterArm
 {
+
+  using JointCommand = baxter_core_msgs::msg::JointCommand;
+  using JointState = sensor_msgs::msg::JointState;
+  using Image = sensor_msgs::msg::Image;
+
 public:
-  BaxterArm(int argc, char** argv, std::string _side = "right");
+
+  BaxterArm(std::string side = "right", bool sim = true);
+
+  inline auto node()
+  {
+    return node_;
+  }
+
+  inline void setControlLoop(const std::function<void()> callback, std::chrono::milliseconds dt)
+  {
+    static auto timer = node_->create_wall_timer(dt, callback);
+  }
 
   // joint space I/O
   vpColVector jointPosition() {return q_;}
-  void setJointPosition(vpColVector _q);
+  void setJointPosition(const vpColVector& _q);
   void setJointVelocity(vpColVector _qdot);
 
   // default arm position
-  vpColVector init();
-
-  // operational (camera) space I/O
-  void setCameraPose(vpHomogeneousMatrix _M);
-  inline void setCameraPose(const vpPoseVector &_pose)
-  {
-    setCameraPose(vpHomogeneousMatrix(_pose));
-  }
+  vpColVector home();
 
   void plot(vpColVector err);
 
@@ -42,6 +50,10 @@ public:
 
   // Jacobian in camera frame
   vpMatrix cameraJacobian(const vpColVector &_q) const ;
+  inline vpMatrix cameraJacobian() const
+  {
+    return cameraJacobian(q_);
+  }
 
   // Inverse Kinematics in camera frame
   // returns True if solution found
@@ -65,37 +77,23 @@ public:
   double y() {return cd_.y();}
   double area()  {return cd_.area();}
   double area_d() const {return area_d_;}
-  bool ok()
+
+  inline bool ready() const
   {
-    if(!sim_)
-      token->update();
-
-    if(!im_ok)
-    {
-      ros::Rate wait_image(50);
-      while(!im_ok)
-      {
-        ros::spinOnce();
-        wait_image.sleep();
-      }
-    }
-    ros::spinOnce();
-    loop_->sleep();
-
-
-    return ros::ok();
-  }
+    return im_ok && js_ok;
+  } 
 
 protected:
-  // ROS
-  std::unique_ptr<ros::NodeHandle> nh_;
-  ros::Publisher cmd_pub_;
-  std::unique_ptr<ros::Rate> loop_;
-  ros::Subscriber joint_subscriber_;
+  // ROS  
+  rclcpp::Node::SharedPtr node_;
+
+  // joints
+  rclcpp::Subscription<JointState>::SharedPtr joint_sub;
   std::vector<std::string> names_;
-  sensor_msgs::JointState cmd_msg_sim;
-  baxter_core_msgs::JointCommand cmd_msg_real;
-  std::unique_ptr<ecn::TokenHandle> token;
+
+  // cmd
+  rclcpp::Publisher<JointCommand>::SharedPtr cmd_pub;
+  JointCommand cmd;
 
   // gain tuning
   int lambda_;
@@ -111,13 +109,13 @@ protected:
   vpVelocityTwistMatrix cWw_, fRRb_;
 
   // some checks
-  bool sim_, lefty_, is_init_ = false, im_ok = false;
+  bool lefty_, is_init_ = false, im_ok = false, js_ok = false;
   double area_d_ =  0.05;    // simulation value
 
   // image
-  std::unique_ptr<image_transport::ImageTransport> it_;
-  image_transport::Subscriber image_subscriber_;
-  image_transport::Publisher image_publisher_;
+  image_transport::ImageTransport im_tr;
+  image_transport::Subscriber image_sub;
+  image_transport::Publisher image_pub;
   ecn::ColorDetector cd_;
   int lost_count = 0;
 
@@ -129,10 +127,6 @@ protected:
   int fMw(const vpColVector &_q, vpHomogeneousMatrix &_M) const;
   // Classical Jacobian of wrist frame
   int fJw(const vpColVector &_q, vpMatrix &_J) const;
-
-  // ROS functions
-  void readJointStates(const sensor_msgs::JointState::ConstPtr& msg);
-  void readImage(const sensor_msgs::ImageConstPtr& msg);
 
 
 };

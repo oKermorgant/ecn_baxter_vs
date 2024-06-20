@@ -2,22 +2,16 @@
 #include <urdf/model.h>
 #include <opencv2/highgui.hpp>
 #include <thread>
-#include <ros/package.h>
+#include <rclcpp/parameter_client.hpp>
 
 using namespace std;
 
-BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/baxter_")
-{
-  const std::string group(getenv("USER"));
-  const string rosmaster(getenv("ROS_MASTER_URI"));
-
-  sim_ = rosmaster.find("baxter") == rosmaster.npos;
-
-  ros::init(argc, argv, group + "_control");
-
-  nh_ = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle());
-  it_ = std::unique_ptr<image_transport::ImageTransport>(new image_transport::ImageTransport(*nh_));
-  loop_ = std::unique_ptr<ros::Rate>(new ros::Rate(10));
+BaxterArm::BaxterArm(std::string _side, bool sim) :
+  logger("/tmp/baxter_"),
+  node_{std::make_shared<rclcpp::Node>("control")},
+  im_tr{node_}
+{  
+  node_->set_parameter(rclcpp::Parameter("use_sim_time", sim));
 
   // in case of misspell
   if (_side != "left")
@@ -27,7 +21,7 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
   lefty_ = (_side == "left");
 
   // we detect green by default (sim)
-  if(sim_)
+  if(sim)
     detect(0, 255, 0);
   else if(lefty_)
     detect(255,0,0, true);
@@ -35,7 +29,7 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
     detect(0,255,0, true);
 
   std::cout << "BaxterArm initialized for " << _side << " arm ";
-  if(sim_)
+  if(sim)
     std::cout << "and in simulation\n";
   else
     std::cout << "on the real robot\n";
@@ -44,30 +38,31 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
   q_.resize(7);
 
   // init joint URDF names
-  cmd_msg_real.names.resize(7);
-  cmd_msg_real.names[0] = _side + "_s0";
-  cmd_msg_real.names[1] = _side + "_s1";
-  cmd_msg_real.names[2] = _side + "_e0";
-  cmd_msg_real.names[3] = _side + "_e1";
-  cmd_msg_real.names[4] = _side + "_w0";
-  cmd_msg_real.names[5] = _side + "_w1";
-  cmd_msg_real.names[6] = _side + "_w2";
-  cmd_msg_real.command.resize(7);
-  cmd_msg_sim.name = cmd_msg_real.names;
-  cmd_msg_sim.position.resize(7);
+  cmd.names.resize(7);
+  cmd.names[0] = _side + "_s0";
+  cmd.names[1] = _side + "_s1";
+  cmd.names[2] = _side + "_e0";
+  cmd.names[3] = _side + "_e1";
+  cmd.names[4] = _side + "_w0";
+  cmd.names[5] = _side + "_w1";
+  cmd.names[6] = _side + "_w2";
+  cmd.command.resize(7);
 
+  // load Baxter description
+  const auto rsp_node(std::make_shared<rclcpp::Node>("baxter_rsp"));
+  const auto rsp_param_srv = std::make_shared<rclcpp::SyncParametersClient>
+                             (rsp_node, "/robot/robot_state_publisher");
+  rsp_param_srv->wait_for_service();
+  if(!rsp_param_srv->has_parameter("robot_description"))
+  {
+    // cannot get the model anyway
+    RCLCPP_WARN(node_->get_logger(), "cannot get Baxter model");
+    return;
+  }
   // init joint limits
   // parse URDF to get robot data (name, DOF, joint limits, etc.)
   urdf::Model model;
-  // load Baxter description
-  std::string baxter_description = ros::package::getPath("ecn_baxter_vs");
-  baxter_description =    "rosparam set -t " +
-      baxter_description + "/launch/baxter.urdf " +
-      "/robot_description";
-  system(baxter_description.c_str());
-
-  model.initParam("/robot_description");
-
+  model.initString(rsp_param_srv->get_parameter<string>("robot_description"));
 
   q_min_.resize(7);
   q_max_.resize(7);
@@ -76,10 +71,10 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
   {
     for(unsigned int i=0;i<7;++i)
     {
-      if(joint.second->name == cmd_msg_real.names[i])
+      if(joint.second->name == cmd.names[i])
       {
         v_max_[i] = joint.second->limits->velocity;
-        if(!sim_)
+        if(!sim)
           v_max_[i] *= .5;
         q_min_[i] = joint.second->limits->lower;
         q_max_[i] = joint.second->limits->upper;
@@ -140,35 +135,16 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
   bMf_.extract(bRf);
   fRRb_.buildFrom(vpTranslationVector(), bRf.inverse());    // this is just the frame change matrix [[R 0][0 R]]
 
-  if(sim_)
+  if(sim)
   {
-    // publisher to joint command
-    cmd_pub_ = nh_->advertise<sensor_msgs::JointState>("/sim_ros_interface/joint_command", 100);
-
-    // subscriber to joint states
-    joint_subscriber_ = nh_->subscribe("/sim_ros_interface/joint_states", 1000, &BaxterArm::readJointStates, this);
-
-    // set image to None, subscriber instantiated in the image setter
-    image_subscriber_ = it_->subscribe("/sim_ros_interface/camera/"+_side, 1, &BaxterArm::readImage, this);
-
-    // camera parameters
-    cd_.setCamera(640, 480, 90);
+    area_d_ = 0.05;
+    // simulated camera parameters
+    cd_.setCamera(640, 480, ecn::Deg(90));
   }
   else
   {
-    token = std::unique_ptr<ecn::TokenHandle>(new ecn::TokenHandle);
-
     // desired area in this case
     area_d_ = 0.03;
-
-    // publisher to joint command
-    cmd_pub_ = nh_->advertise<baxter_core_msgs::JointCommand>("/robot/limb/"+_side+"/joint_command", 100);
-
-    // subscriber to joint states
-    joint_subscriber_ = nh_->subscribe("/robot/joint_states", 1000, &BaxterArm::readJointStates, this);
-
-    // set image to None, subscriber instantiated in the image setter
-    image_subscriber_ = it_->subscribe("/cameras/"+_side+"_hand_camera/image", 1, &BaxterArm::readImage, this);
 
     // camera parameters
     if(lefty_)
@@ -177,8 +153,60 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
       cd_.setCamera(404.38,404.38,323.58,196.39);
 
     // publisher to Baxter image
-    image_publisher_ = it_->advertise("/robot/xdisplay", 100);
+    image_pub = im_tr.advertise("/robot/xdisplay", 100);
   }
+
+  // publisher to joint command
+  cmd_pub = node_->create_publisher<JointCommand>("/robot/limb/"+_side+"/joint_command", 100);
+
+  // subscriber to joint states
+  joint_sub = node_->create_subscription<JointState>("/robot/joint_states", 1000, [&](const JointState::SharedPtr msg)
+  {
+    size_t idx{};
+    for(auto &name: msg->name)
+    {
+      for(unsigned int j=0;j<7;++j)
+      {
+        if(name == cmd.names[j])
+        {
+          q_[j] = msg->position[idx];
+          continue;
+        }
+      }
+      idx++;
+    }
+  });
+
+  // set image to None, subscriber instantiated in the image setter
+  image_sub = im_tr.subscribe("/cameras/"+_side+"_hand_camera/image", 1, [&](const Image::ConstSharedPtr msg)
+  {
+    if(!is_init_)
+      return;
+
+    // process with color detector
+    cv::Mat im_out;
+    auto im{cv_bridge::toCvCopy(msg)};
+
+    const auto detected = cd_.process(im->image, im_out);
+
+    im_ok = detected || im_ok;
+
+    if(detected && cd_.area() > 0.002)
+      lost_count = 0;
+    else
+      lost_count++;
+
+    // add setpoint
+    cv::circle(im_out, cv::Point(cd_.cam.u0, cd_.cam.v0),
+               int(sqrt(area_d_*cd_.cam.px*cd_.cam.py/M_PI)),
+               cv::Scalar(0,255,0), 2);
+
+    // display.
+    cv::imshow("Baxter",im_out);
+    cv::waitKey(1);
+  });
+
+
 
 
   // visualization
@@ -195,8 +223,6 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
 
   cv::createTrackbar( "rho percent", "Baxter", &rho_, 50);
   cv::setTrackbarPos("rho percent", "Baxter", 10);
-
-  ros::spinOnce();
 }
 
 void BaxterArm::detect(int r, int g, int b, bool show_segment)
@@ -208,7 +234,7 @@ void BaxterArm::detect(int r, int g, int b, bool show_segment)
   cd_.setSaturationValue(100, 60);
 }
 
-vpColVector BaxterArm::init()
+vpColVector BaxterArm::home()
 {
   std::cout << "Going to init position... ";
   vpColVector q(7);
@@ -226,49 +252,14 @@ vpColVector BaxterArm::init()
 }
 
 
-void BaxterArm::setJointPosition(vpColVector _q)
+void BaxterArm::setJointPosition(const vpColVector &_q)
 {
-  ros::Rate loop(10);
-  // wait to receive joint states
-  //  while(q_.frobeniusNorm() != 0)
-  {
-    //  ros::spinOnce();
-    //  loop.sleep();
-  }
-  cout << "Joint states received\n";
+  for(unsigned int i=0;i<7;++i)
+    cmd.command[i] = _q[i];
+  cmd.mode = cmd.POSITION_MODE;
+  cmd_pub->publish(cmd);
 
-  if(sim_)
-  {
-    // simulation only allows velocity control
-    // -> apply velocity till desired position is reached
-
-    int it = 0;
-    double lambda = 2;
-    while((_q - q_).frobeniusNorm() > 1e-3 && it < 1000 && ros::ok())
-    {
-      if ((_q - q_).frobeniusNorm() < 1e-2)
-        lambda = 5;
-      it++;
-      setJointVelocity(-lambda * (q_ - _q));
-      ros::spinOnce();
-      loop.sleep();
-    }
-  }
-  else
-  {
-    for(unsigned int i=0;i<7;++i)
-      cmd_msg_real.command[i] = _q[i];
-    cmd_msg_real.mode = 1;
-    int it = 0;
-    while((_q - q_).frobeniusNorm() > 5e-3 && it < 1000 && ros::ok())
-    {
-      it++;
-      cmd_pub_.publish(cmd_msg_real);
-      std::cout << "Reaching desired position, error=" << (_q - q_).frobeniusNorm() << std::endl;
-      ros::spinOnce();
-      loop.sleep();
-    }
-  }
+  std::this_thread::sleep_for(1s);
 }
 
 void BaxterArm::setJointVelocity(vpColVector _qdot)
@@ -285,35 +276,11 @@ void BaxterArm::setJointVelocity(vpColVector _qdot)
       _qdot[i] = min(v_max_[i], max(-v_max_[i], _qdot[i]));
   }
 
-  if(sim_)    {
-    // simulation uses classical JointState message
-    for(int i=0;i<7;++i)
-      cmd_msg_sim.position[i] = _qdot[i];
-    cmd_pub_.publish(cmd_msg_sim);
-  }
-  else
-  {
-    // real Baxter uses JointCommand message
-    for(unsigned int i=0;i<7;++i)
-      cmd_msg_real.command[i] = _qdot[i];
-    cmd_msg_real.mode = 2;
-    cmd_pub_.publish(cmd_msg_real);
-  }
+  for(unsigned int i=0;i<7;++i)
+    cmd.command[i] = _qdot[i];
+  cmd.mode = cmd.VELOCITY_MODE;
+  cmd_pub->publish(cmd);
 }
-
-
-void BaxterArm::setCameraPose(vpHomogeneousMatrix _M)
-{
-  // bMc
-  vpColVector q(7);
-  // change frames to get IK
-  _M = bMf_.inverse() * _M * wMc_.inverse();    // oMw
-
-  // go to the desired position
-  if(inverseKinematics(q_, _M, q))
-    setJointPosition(q);
-}
-
 
 vpHomogeneousMatrix BaxterArm::cameraPose()
 {
@@ -426,43 +393,40 @@ int BaxterArm::fMw(const vpColVector &_q, vpHomogeneousMatrix &_M) const
 bool BaxterArm::inverseKinematics(const vpColVector &_q0, const vpHomogeneousMatrix &_M_des, vpColVector &_q)
 {
   const double eMin = 0.1;
-  const unsigned int max_try = 10, max_iter = 10000;
+  const unsigned int max_iter = 10000;
   const double lambda = 0.01;
   double e = 2*eMin;
 
-  unsigned int nb_try = 0, iter = 0;
+  unsigned int iter = 0;
   vpPoseVector pose_err;
   vpColVector dq(7);
   vpHomogeneousMatrix M;
   vpMatrix J(6,7), J_reduce(6,6);
   _q = _q0;
   std::cout << "Current pose: " << _q0 << std::endl;
+  iter = 0;
+  while(e > eMin && iter < max_iter)
   {
-    iter = 0; e = 2*eMin;
-    while(e > eMin && iter < max_iter)
-    {
-      fMw(_q, M);
-      fJw(_q, J);
-      pose_err.buildFrom(M*_M_des.inverse());
+    fMw(_q, M);
+    fJw(_q, J);
+    pose_err.buildFrom(M*_M_des.inverse());
 
-      dq = -lambda * J.t() * (vpColVector) pose_err;
-      for(unsigned int i=0;i<6;++i)
-        if(_q[i] < q_max_[i] && _q[i] > q_min_[i])      // check joint limits valid
-          _q[i] += dq[i];
+    dq = -lambda * J.t() * (vpColVector) pose_err;
+    for(unsigned int i=0;i<6;++i)
+      if(_q[i] < q_max_[i] && _q[i] > q_min_[i])      // check joint limits valid
+        _q[i] += dq[i];
 
-      e = ((vpColVector) pose_err).frobeniusNorm();
-      iter++;
-    }
-    if(e < eMin)
-    {
-      std::cout << "IK Solution found:: " << _q.t() << std::endl;
-      std::cout << "\tIK, remaining error = " << e << std::endl;
-      return true;   // Valid solution found
-    }
-    // else keep trying
-    std::cout << "\tIK, remaining error = " << e << std::endl;
-    nb_try++;
+    e = ((vpColVector) pose_err).frobeniusNorm();
+    iter++;
   }
+  if(e < eMin)
+  {
+    std::cout << "IK Solution found:: " << _q.t() << std::endl;
+    std::cout << "\tIK, remaining error = " << e << std::endl;
+    return true;   // Valid solution found
+  }
+  // else keep trying
+  std::cout << "\tIK, remaining error = " << e << std::endl;
   return false;       // no valid solution found
 }
 
@@ -601,49 +565,3 @@ void BaxterArm::plot(vpColVector err)
   logger.update();
 }
 
-
-void BaxterArm::readJointStates(const sensor_msgs::JointState::ConstPtr& _msg)
-{
-  const bool init = (q_.frobeniusNorm() == 0);
-
-  for(unsigned int i=0;i<_msg->name.size();++i)
-  {
-    for(unsigned int j=0;j<7;++j)
-    {
-      if(_msg->name[i] == cmd_msg_real.names[j])
-      {
-        if(init)
-          q_[j] = _msg->position[i];
-        else
-          q_[j] = 0.5*(q_[j] + _msg->position[i]);
-      }
-    }
-  }
-}
-
-void BaxterArm::readImage(const sensor_msgs::ImageConstPtr& _msg)
-{
-  if(!is_init_)
-    return;
-
-  // process with color detector
-  cv::Mat im_out;
-
-  const auto detected = cd_.process(_msg, im_out);
-
-  im_ok = detected || im_ok;
-
-  if(detected && cd_.area() > 0.002)
-    lost_count = 0;
-  else
-    lost_count++;
-
-  // add setpoint
-  cv::circle(im_out, cv::Point(cd_.cam.u0, cd_.cam.v0),
-             int(sqrt(area_d_*cd_.cam.px*cd_.cam.py/M_PI)),
-             cv::Scalar(0,255,0), 2);
-
-  // display.
-  cv::imshow("Baxter",im_out);
-  cv::waitKey(1);
-}

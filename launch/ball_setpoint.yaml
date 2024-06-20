@@ -1,0 +1,17 @@
+pose_setpoint:
+    type: geometry_msgs/Point
+    x:
+        to: x
+        min: -3
+        max: 0
+        default: -1.44
+    y:
+        to: y
+        min: -2
+        max: 2
+        default: 0.85
+    z:
+        to: z
+        min: 0.5
+        max: 3.5
+        default: 1.3

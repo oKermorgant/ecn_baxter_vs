@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>ecn_baxter_vs</name>
-  <version>0.0.1</version>
-  <description>The ecn_baxter_vs package</description>
+  <version>2.0.0</version>
+  <description>Baxter visual servoing</description>
 
   <maintainer email="olivier.kermorgant@ec-nantes.fr">Olivier Kermorgant</maintainer>
 
@@ -10,20 +10,18 @@
   <license>MIT</license>
 
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>baxter_core_msgs</depend>
-  <depend>roscpp</depend>
+  <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>urdf</depend>
   <depend>image_transport</depend>
- <depend>ecn_common</depend>
+<!--   <depend>ecn_common</depend> -->
 
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
-
+       <build_type>ament_cmake</build_type>
   </export>
 </package>
