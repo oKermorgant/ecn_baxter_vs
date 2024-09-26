@@ -599,7 +599,7 @@ void BaxterArm::plot(vpColVector err)
   for(int i = 0; i< 7; ++i)
     q_plot[i] = -1 + 2*(q_[i] - q_min_[i])/(q_max_[i] - q_min_[i]);
 
-  logger.update();
+  //logger.update();
 }
 
 
