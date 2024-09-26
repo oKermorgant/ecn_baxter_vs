@@ -9,6 +9,7 @@ using namespace std;
 int main(int argc, char** argv)
 {
   BaxterArm arm(argc, argv, "right");    // defaults to right arm
+  //  arm.detect(r, g, b, show, saturation, value); to pick detected color, otherwise default
 
   vpColVector q = arm.init();
 
