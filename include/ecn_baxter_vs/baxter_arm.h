@@ -11,7 +11,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <ecn_common/color_detector.h>
 #include <ecn_common/token_handle.h>
-#include <log2plot/log_plotter.h>
+#include <log2plot/logger.h>
 #include <ctime>
 #include <memory>
 
@@ -60,7 +60,8 @@ public:
   inline double rho() const {return 0.01*rho_;}
 
   // camera part
-  void detect(int r, int g ,int b, bool show_segment = false);
+  void detect(int r, int g ,int b, bool show_segment = false,
+              int saturation = 90, int value = 45);
   double x() {return cd_.x();}
   double y() {return cd_.y();}
   double area()  {return cd_.area();}
@@ -104,7 +105,7 @@ protected:
   // online feedback
   std::array<double, 9> q_plot;
   std::array<double, 3> vs_plot;
-  log2plot::LogPlotter logger;
+  log2plot::Logger logger;
 
   vpColVector q_;
   vpHomogeneousMatrix wMc_, bMf_;

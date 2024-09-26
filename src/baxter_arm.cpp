@@ -199,13 +199,14 @@ BaxterArm::BaxterArm(int argc, char** argv, std::string _side) : logger("/tmp/ba
   ros::spinOnce();
 }
 
-void BaxterArm::detect(int r, int g, int b, bool show_segment)
+void BaxterArm::detect(int r, int g, int b, bool show_segment,
+              int saturation, int value)
 {
   cd_.detectColor(r, g, b);
   cd_.fitCircle();
   if(show_segment)
     cd_.showSegmentation();
-  cd_.setSaturationValue(100, 60);
+  cd_.setSaturationValue(saturation, value);
 }
 
 vpColVector BaxterArm::init()
