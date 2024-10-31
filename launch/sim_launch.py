@@ -9,8 +9,10 @@ def generate_launch_description():
 
     sl.include('baxter_gz', 'upload_launch.py')
 
+    sl.gz_world_tf()
+
     with sl.group(ns = 'ball'):
-        bridges = [GazeboBridge('/model/ball/pose', 'pose', 'geometry_msgs/Pose', GazeboBridge.gz2ros),
+        bridges = [GazeboBridge('/model/ball/pose', '/tf', 'tf2_msgs/TFMessage', GazeboBridge.gz2ros),
                    GazeboBridge('/model/ball/cmd_vel', 'cmd_vel', 'geometry_msgs/Twist', GazeboBridge.ros2gz)]
         sl.create_gz_bridge(bridges)
 

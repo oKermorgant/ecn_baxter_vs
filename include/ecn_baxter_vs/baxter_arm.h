@@ -8,7 +8,7 @@
 #include <visp/vpColVector.h>
 #include <visp/vpHomogeneousMatrix.h>
 #include <visp/vpVelocityTwistMatrix.h>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <ecn_baxter_vs/color_detector.h>
 #include <log2plot/log_plotter.h>
 #include <ctime>

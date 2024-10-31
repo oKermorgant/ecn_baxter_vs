@@ -94,6 +94,7 @@
             <publish_collision_pose>false</publish_collision_pose>
             <publish_visual_pose>false</publish_visual_pose>
             <publish_nested_model_pose>true</publish_nested_model_pose>
+            <use_pose_vector_msg>true</use_pose_vector_msg>
         </plugin>
          <plugin
             filename="ignition-gazebo-velocity-control-system"
