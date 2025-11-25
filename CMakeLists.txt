@@ -31,4 +31,4 @@ ament_export_dependencies(urdf tf2_ros image_transport)
 ament_export_libraries(ecn_baxter_vs)
 ament_export_include_directories(include)
 
-ament_auto_package()
+ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
